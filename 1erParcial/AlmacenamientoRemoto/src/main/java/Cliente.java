@@ -24,7 +24,7 @@ public class Cliente {
             opc = scanner.nextInt();
             switch(opc){
                 case 1:
-                    listarDirectoriosLocal();
+                    listarDirectoriosLocal(cl);
                     break;
                 case 2:
                     break;
@@ -39,27 +39,84 @@ public class Cliente {
                 case 7:
                     break;
             }
-            
+            cl.close(); //Cierra socket principal luego de todas operaciones
         }catch(Exception e){
             e.printStackTrace();
         }
     }
-     public static void listarDirectoriosLocal() {
+     public static void listarDirectoriosLocal(Socket cl) {
+         var op = "";
+         System.out.println("¿Desde listar los directorios de manera local o remota?");
+         Scanner scanner = new Scanner(System.in);
+            System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
+             op = scanner.next();
+             if(op.equals("l")){
+                System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
+                JFileChooser jf = new JFileChooser();
+                File dir = new File("d:\\Documentos\\");
+                jf.setCurrentDirectory(dir);
+                jf.setRequestFocusEnabled(true);
+                jf.requestFocus();
+                jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                int r = jf.showDialog(null, "Elegir");
+                if(r==JFileChooser.APPROVE_OPTION){
+                    File f = jf.getSelectedFile();
+                    String tipo = (f.isDirectory())?"Carpeta":"Archivo";
+                    System.out.println("\033[32m Elegiste: "+f.getAbsolutePath());
+                    System.out.println("Tipo: "+tipo);
+                    if(tipo.compareTo("Carpeta")==0){
+                        File[]listado = f.listFiles();
+                         String permisos="";
+                    if(f.canRead())
+                        permisos = permisos+"r";
+                    if(f.canWrite())
+                        permisos = permisos+"w";
+                    if(f.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                        System.out.println("Contenido:");
+                        for(int x =0;x<listado.length;x++){
+                            if (listado[x].isDirectory()) {
+                            System.out.println("\033[33m ->" + listado[x]);
+                            }
+                        }//for
+                    }//if
+                 }
+             }else if(op.equals("r")){
+                 try{
+                     String directiva = "list";
+                     DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                     dos.writeUTF(directiva);
+                     dos.flush();
+                     
+                     DataInputStream dis = new DataInputStream(cl.getInputStream()); 
+                     String instr1 = dis.readUTF();
+                     System.out.println(instr1);
+                     String carpeta = dis.readUTF();
+                     System.out.println(carpeta);
+                     String tipo = dis.readUTF();
+                     System.out.println(tipo);
+                     String permisos = dis.readUTF();
+                     System.out.println("Permisos: "+permisos);
+                     int cantidadCarpetas = dis.readInt();
+                     System.out.println("Carpetas recibidas desde el servidor: ");
+                     for (int i = 0; i < cantidadCarpetas; i++) {
+                        String nombreCarpeta = dis.readUTF(); // Leer el nombre de la carpeta
+                        System.out.println("- " + nombreCarpeta);
+                    }
+                     dis.close();
+                     dos.close();
+                     cl.close();
+                 }catch(Exception e){
+                   e.printStackTrace();
+                 }
+                 
+             }else{
+                 System.out.println("Opción no válida");
+             }
+            
          
-         System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
-         JFileChooser jf = new JFileChooser();
-            File dir = new File("d:\\Documentos\\");
-            jf.setCurrentDirectory(dir);
-            jf.setRequestFocusEnabled(true);
-            jf.requestFocus();
-            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-            int r = jf.showDialog(null, "Elegir");
-            if(r==JFileChooser.APPROVE_OPTION){
-                File f = jf.getSelectedFile();
-                String tipo = (f.isDirectory())?"Carpeta":"Archivo";
-                System.out.println("\033[32m Elegiste: "+f.getAbsolutePath());
-                System.out.println("Tipo: "+tipo);
-                if(tipo.compareTo("Archivo")==0){
+                /*if(tipo.compareTo("Archivo")==0){
                     System.out.println("Tamaño:"+f.length()+" bytes");
                     String permisos="";
                     if(f.canRead())
@@ -78,7 +135,7 @@ public class Cliente {
                       
                     }//for
                 }//else if
-            }//if
+            }//if*/
 
        
 }

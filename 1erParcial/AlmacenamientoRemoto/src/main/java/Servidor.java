@@ -1,5 +1,6 @@
 import java.io.*;
 import java.net.*;
+import javax.swing.JFileChooser;
 /*
  * @authors Carlos Moreno y Vanessa Trejo
  */
@@ -12,7 +13,60 @@ public class Servidor {
             for(;;){ //while(true)
                 Socket cl = s.accept(); //en cada interacción aceptamos cliente, y devuelve referencia de tipo socket.
                 System.out.println("Cliente conectado desde-> "+cl.getInetAddress()+":"+cl.getPort());//registro de quien fue ultimo que se conecto
-                
+                try{
+                    DataInputStream dis = new DataInputStream(cl.getInputStream());
+                    String directiva = dis.readUTF();
+                    DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                    switch(directiva){
+                        case "list":
+                            String instr1="Seleccione la carpeta de donde desea enlistar los directorios";
+                            dos.writeUTF(instr1);
+                            dos.flush();
+                            JFileChooser jf = new JFileChooser();
+                            File dir = new File("d:\\Documentos\\");
+                            jf.setCurrentDirectory(dir);
+                            jf.setRequestFocusEnabled(true);
+                            jf.requestFocus();
+                            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                            int r = jf.showDialog(null, "Elegir");
+                            if(r==JFileChooser.APPROVE_OPTION){
+                                File f = jf.getSelectedFile();
+                                String tipo = (f.isDirectory())?"Carpeta":"Archivo";
+                                String carpeta = "\033[32m Elegiste: "+f.getAbsolutePath();
+                                dos.writeUTF(carpeta);
+                                dos.flush();
+                                String Tipo = "Tipo: "+tipo;
+                                dos.writeUTF(Tipo);
+                                dos.flush();
+                                if(tipo.compareTo("Carpeta")==0){
+                                File[]listado = f.listFiles();
+                                    String permisos="";
+                                if(f.canRead())
+                                   permisos = permisos+"r";
+                                if(f.canWrite())
+                                   permisos = permisos+"w";
+                                if(f.canExecute())
+                                   permisos = permisos+"x";
+                                dos.writeUTF(permisos);
+                                dos.flush();
+                                dos.writeInt(listado.length);
+                                dos.flush();
+                                   for(int x =0;x<listado.length;x++){
+                                       if (listado[x].isDirectory()) {
+                                           dos.writeUTF(listado[x].getName());
+                                           dos.flush();
+                                       }
+                                   }//for
+                               }//if
+                            }
+                            dos.close();
+                            dis.close();
+                            cl.close();
+                            break;
+                    }          
+                }catch(Exception e){
+                   e.printStackTrace();
+                }
             }    
         }catch(Exception e){
             e.printStackTrace();
