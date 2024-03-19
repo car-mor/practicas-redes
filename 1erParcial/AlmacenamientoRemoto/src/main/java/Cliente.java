@@ -77,7 +77,7 @@ public class Cliente {
                         System.out.println("Contenido:");
                         for(int x =0;x<listado.length;x++){
                             if (listado[x].isDirectory()) {
-                            System.out.println("\033[33m ->" + listado[x]);
+                            System.out.println("\033[33m ->" + listado[x].getName());
                             }
                         }//for
                     }//if
@@ -102,7 +102,7 @@ public class Cliente {
                      System.out.println("Carpetas recibidas desde el servidor: ");
                      for (int i = 0; i < cantidadCarpetas; i++) {
                         String nombreCarpeta = dis.readUTF(); // Leer el nombre de la carpeta
-                        System.out.println("- " + nombreCarpeta);
+                        System.out.println("-> " + nombreCarpeta);
                     }
                      dis.close();
                      dos.close();
