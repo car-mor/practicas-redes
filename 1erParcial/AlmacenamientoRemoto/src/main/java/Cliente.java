@@ -75,12 +75,13 @@ public class Cliente {
                         permisos = permisos+"x";
                     System.out.println("Permisos:"+permisos);
                         System.out.println("Contenido:");
-                        for(int x =0;x<listado.length;x++){
-                            if (listado[x].isDirectory()) {
-                            System.out.println("\033[33m ->" + listado[x].getName());
-                            }
-                        }//for
-                    }//if
+                    for (int x = 0; x < listado.length; x++) {
+                        if (listado[x].isDirectory()) {
+                            System.out.println("->"+ listado[x].getName());
+                            listarDirectoriosRecursivamente(listado[x], 1);
+                            
+                        }
+}
                  }
              }else if(op.equals("r")){
                  try{
@@ -113,31 +114,28 @@ public class Cliente {
                  
              }else{
                  System.out.println("Opción no válida");
-             }
-            
-         
-                /*if(tipo.compareTo("Archivo")==0){
-                    System.out.println("Tamaño:"+f.length()+" bytes");
-                    String permisos="";
-                    if(f.canRead())
-                        permisos = permisos+"r";
-                    if(f.canWrite())
-                        permisos = permisos+"w";
-                    if(f.canExecute())
-                        permisos = permisos+"x";
-                    System.out.println("Permisos:"+permisos);
-                    
-                }else if(tipo.compareTo("Carpeta")==0){
-                    File[]listado = f.listFiles();
-                    System.out.println("Contenido:");
-                    for(int x =0;x<listado.length;x++){
-                        System.out.println("\033[33m ->"+listado[x]);
-                      
-                    }//for
-                }//else if
-            }//if*/
-
-       
+             }    
+               
 }
 }
+     
+      // Función para listar los directorios recursivamente
+public static void listarDirectoriosRecursivamente(File directorio, int nivel) {
+    File[] listado = directorio.listFiles();
+    if (listado != null) {
+        for (int y = 0; y < listado.length; y++) {
+            if (listado[y].isDirectory()) {
+                // Agregar la identación según el nivel
+                for (int i = 0; i < nivel; i++) {
+                    System.out.print("   |");
+                }
+                System.out.println("__ " + listado[y].getName());
+                listarDirectoriosRecursivamente(listado[y], nivel + 1); // Llamada recursiva
+            }
+        }
+    }
+}
+}
+     
+    
 
