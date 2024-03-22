@@ -54,7 +54,7 @@ public class Servidor {
                                 String Seleccionada = f.getName();
                                 dos.writeUTF(Seleccionada);
                                 dos.flush();
-                                enlistarRemoto(listado, dos);
+                                enlistarRemoto(f, dos);
                                }//if
                             }
                             dos.close();
@@ -71,8 +71,9 @@ public class Servidor {
         }
     }
     
-    private static void enlistarRemoto(File[] listado, DataOutputStream dos) throws IOException {
-    for (int x = 0; x < listado.length; x++) {
+    private static void enlistarRemoto(File f, DataOutputStream dos) throws IOException {
+    File[]listado = f.listFiles();
+        for (int x = 0; x < listado.length; x++) {
         if (listado[x].isDirectory()) {
             dos.writeUTF(listado[x].getName());
             dos.flush();
@@ -82,14 +83,12 @@ public class Servidor {
             dos.flush();
             for (int y = 0; y < sublistado.length; y++) {
                 if (sublistado[y].isDirectory()) {
-                    dos.writeUTF("|__");
+                    dos.writeUTF("    |__"+ sublistado[y].getName());
                     dos.flush();
-                    dos.writeUTF("    " + sublistado[y].getName());
-                    dos.flush();
+                    enlistarRemoto(sublistado[y], dos);
                 }
-                enlistarRemoto(sublistado, dos);
             }
-        }enlistarRemoto(listado, dos);
+        }
     }
 }
 }

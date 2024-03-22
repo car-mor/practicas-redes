@@ -9,6 +9,7 @@ public class Cliente {
     
     public static void main(String[] args) {
         try{
+        while(true){
             int opc = 0;
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
@@ -37,9 +38,10 @@ public class Cliente {
                 case 6:
                     break;
                 case 7:
-                    break;
-            }
-            cl.close(); //Cierra socket principal luego de todas operaciones
+                    cl.close();
+                    System.out.println("Saliendo de la aplicación...");
+                    return;
+            }}
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -108,10 +110,8 @@ public class Cliente {
                          System.out.println("    "+carpetas);
                          int cantidadSubcarpetas = dis.readInt();
                          for(int j=0; j<cantidadSubcarpetas;j++){
-                            String identación = dis.readUTF();
-                             System.out.println("    "+identación);
-                             String subcarpetas = dis.readUTF();
-                             System.out.println("    "+subcarpetas);
+                            String subcarpetas = dis.readUTF();
+                            System.out.println("    "+subcarpetas);
                          }
                     }
                      dis.close();
@@ -123,7 +123,9 @@ public class Cliente {
                  
              }else{
                  System.out.println("Opción no válida");
+                 
              }
+             
 }
 }
 
