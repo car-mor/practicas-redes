@@ -9,6 +9,7 @@ public class Cliente {
     
     public static void main(String[] args) {
         try{
+        while(true){
             int opc = 0;
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
@@ -37,9 +38,10 @@ public class Cliente {
                 case 6:
                     break;
                 case 7:
-                    break;
-            }
-            cl.close(); //Cierra socket principal luego de todas operaciones
+                    cl.close();
+                    System.out.println("Saliendo de la aplicación...");
+                    return;
+            }}
         }catch(Exception e){
             e.printStackTrace();
         }
@@ -77,7 +79,7 @@ public class Cliente {
                         System.out.println("Contenido:");
                         for(int x =0;x<listado.length;x++){
                             if (listado[x].isDirectory()) {
-                            System.out.println("\033[33m ->" + listado[x].getName());
+                            System.out.println("\033[33m ->"+listado[x].getName());
                             }
                         }//for
                     }//if
@@ -98,12 +100,11 @@ public class Cliente {
                      System.out.println(tipo);
                      String permisos = dis.readUTF();
                      System.out.println("Permisos: "+permisos);
-                     int cantidadCarpetas = dis.readInt();
-                     System.out.println("Carpetas recibidas desde el servidor: ");
-                     for (int i = 0; i < cantidadCarpetas; i++) {
-                        String nombreCarpeta = dis.readUTF(); // Leer el nombre de la carpeta
-                        System.out.println("-> " + nombreCarpeta);
-                    }
+                     System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
+                     String carpetaSeleccionada = dis.readUTF();
+                     System.out.println(carpetaSeleccionada);
+                     System.out.println("|__");
+                     enlistarSubcarpetas(dis);
                      dis.close();
                      dos.close();
                      cl.close();
@@ -113,31 +114,23 @@ public class Cliente {
                  
              }else{
                  System.out.println("Opción no válida");
+                 
              }
-            
-         
-                /*if(tipo.compareTo("Archivo")==0){
-                    System.out.println("Tamaño:"+f.length()+" bytes");
-                    String permisos="";
-                    if(f.canRead())
-                        permisos = permisos+"r";
-                    if(f.canWrite())
-                        permisos = permisos+"w";
-                    if(f.canExecute())
-                        permisos = permisos+"x";
-                    System.out.println("Permisos:"+permisos);
-                    
-                }else if(tipo.compareTo("Carpeta")==0){
-                    File[]listado = f.listFiles();
-                    System.out.println("Contenido:");
-                    for(int x =0;x<listado.length;x++){
-                        System.out.println("\033[33m ->"+listado[x]);
-                      
-                    }//for
-                }//else if
-            }//if*/
-
-       
+             
 }
+
+     private static void enlistarSubcarpetas(DataInputStream dis) throws IOException{
+       int cantidadCarpetas = dis.readInt();
+       for (int i = 0; i < cantidadCarpetas; i++) {
+            String carpetas = dis.readUTF();
+            System.out.println("    "+carpetas);
+            int cantidadSubcarpetas = dis.readInt();
+            for(int j=0; j<cantidadSubcarpetas;j++){
+            String subcarpetas = dis.readUTF();
+            System.out.println("    "+subcarpetas);
+            enlistarSubcarpetas(dis);
+            }
+        }  
+     }
 }
 
