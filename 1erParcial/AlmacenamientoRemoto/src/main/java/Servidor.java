@@ -49,8 +49,6 @@ public class Servidor {
                                    permisos = permisos+"x";
                                 dos.writeUTF(permisos);
                                 dos.flush();
-                                dos.writeInt(listado.length);
-                                dos.flush();
                                 String Seleccionada = f.getName();
                                 dos.writeUTF(Seleccionada);
                                 dos.flush();
@@ -73,6 +71,8 @@ public class Servidor {
     
     private static void enlistarRemoto(File f, DataOutputStream dos) throws IOException {
     File[]listado = f.listFiles();
+    int cantidadCarpetas = listado.length;
+    dos.writeInt(cantidadCarpetas);
         for (int x = 0; x < listado.length; x++) {
         if (listado[x].isDirectory()) {
             dos.writeUTF(listado[x].getName());

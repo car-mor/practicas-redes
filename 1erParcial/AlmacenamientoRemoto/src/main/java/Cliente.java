@@ -79,7 +79,7 @@ public class Cliente {
                         System.out.println("Contenido:");
                         for(int x =0;x<listado.length;x++){
                             if (listado[x].isDirectory()) {
-                            System.out.println("\033[33m ->" + listado[x].getName());
+                            System.out.println("\033[33m ->"+listado[x].getName());
                             }
                         }//for
                     }//if
@@ -100,20 +100,11 @@ public class Cliente {
                      System.out.println(tipo);
                      String permisos = dis.readUTF();
                      System.out.println("Permisos: "+permisos);
-                     int cantidadCarpetas = dis.readInt();
                      System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
                      String carpetaSeleccionada = dis.readUTF();
                      System.out.println(carpetaSeleccionada);
                      System.out.println("|__");
-                     for (int i = 0; i < cantidadCarpetas; i++) {
-                         String carpetas = dis.readUTF();
-                         System.out.println("    "+carpetas);
-                         int cantidadSubcarpetas = dis.readInt();
-                         for(int j=0; j<cantidadSubcarpetas;j++){
-                            String subcarpetas = dis.readUTF();
-                            System.out.println("    "+subcarpetas);
-                         }
-                    }
+                     enlistarSubcarpetas(dis);
                      dis.close();
                      dos.close();
                      cl.close();
@@ -127,5 +118,19 @@ public class Cliente {
              }
              
 }
+
+     private static void enlistarSubcarpetas(DataInputStream dis) throws IOException{
+       int cantidadCarpetas = dis.readInt();
+       for (int i = 0; i < cantidadCarpetas; i++) {
+            String carpetas = dis.readUTF();
+            System.out.println("    "+carpetas);
+            int cantidadSubcarpetas = dis.readInt();
+            for(int j=0; j<cantidadSubcarpetas;j++){
+            String subcarpetas = dis.readUTF();
+            System.out.println("    "+subcarpetas);
+            enlistarSubcarpetas(dis);
+            }
+        }  
+     }
 }
 
