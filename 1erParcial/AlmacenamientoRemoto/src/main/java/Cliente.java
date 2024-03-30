@@ -25,9 +25,10 @@ public class Cliente {
             opc = scanner.nextInt();
             switch(opc){
                 case 1:
-                    listarDirectoriosLocal(cl);
+                    listarDirectorios(cl);
                     break;
                 case 2:
+                    
                     break;
                 case 3:
                     break;
@@ -36,6 +37,7 @@ public class Cliente {
                 case 5:
                     break;
                 case 6:
+                    crearDirectorios(cl);
                     break;
                 case 7:
                     cl.close();
@@ -46,7 +48,7 @@ public class Cliente {
             e.printStackTrace();
         }
     }
-     public static void listarDirectoriosLocal(Socket cl) {
+     public static void listarDirectorios(Socket cl) {
          var op = "";
          System.out.println("¿Desde listar los directorios de manera local o remota?");
          Scanner scanner = new Scanner(System.in);
@@ -77,11 +79,7 @@ public class Cliente {
                         permisos = permisos+"x";
                     System.out.println("Permisos:"+permisos);
                         System.out.println("Contenido:");
-                        for(int x =0;x<listado.length;x++){
-                            if (listado[x].isDirectory()) {
-                            System.out.println("\033[33m ->"+listado[x].getName());
-                            }
-                        }//for
+                         listarSubdirectoriosLocal(f, 1);
                     }//if
                  }
              }else if(op.equals("r")){
@@ -103,8 +101,7 @@ public class Cliente {
                      System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
                      String carpetaSeleccionada = dis.readUTF();
                      System.out.println(carpetaSeleccionada);
-                     System.out.println("|__");
-                     enlistarSubcarpetas(dis);
+                     enlistarSubcarpetas(dis, 1);
                      dis.close();
                      dos.close();
                      cl.close();
@@ -119,18 +116,106 @@ public class Cliente {
              
 }
 
-     private static void enlistarSubcarpetas(DataInputStream dis) throws IOException{
+     private static void enlistarSubcarpetas(DataInputStream dis, int nivel) throws IOException{
        int cantidadCarpetas = dis.readInt();
        for (int i = 0; i < cantidadCarpetas; i++) {
-            String carpetas = dis.readUTF();
-            System.out.println("    "+carpetas);
+           String carpetas = dis.readUTF();
+           for (int j=0;j<nivel;j++){
+               System.out.print("\t|__");
+           }
+            System.out.println(carpetas);
             int cantidadSubcarpetas = dis.readInt();
             for(int j=0; j<cantidadSubcarpetas;j++){
-            String subcarpetas = dis.readUTF();
-            System.out.println("    "+subcarpetas);
-            enlistarSubcarpetas(dis);
+                for (int k = 0; k < nivel; k++) {
+                System.out.print("\t|__");
+                }
+                String subcarpetas = dis.readUTF();
+                System.out.println("\t"+subcarpetas);
+                enlistarSubcarpetas(dis, nivel+1);
             }
         }  
      }
+     
+    private static void listarSubdirectoriosLocal(File directorio, int nivel) {
+    File[] archivos = directorio.listFiles();
+    if (archivos != null) {
+        for (int x = 0; x < archivos.length; x++) {
+            if (archivos[x].isDirectory()) {
+                for (int j=0;j<nivel;j++){
+                System.out.print("\t|__");
+                }
+                System.out.println(archivos[x].getName());
+                File subDirectorio = archivos[x];
+                File[] subArchivos = subDirectorio.listFiles();
+                    for (int y = 0; y < subArchivos.length; y++) {
+                            for (int k = 0; k < nivel; k++) {
+                            System.out.print("\t|__");
+                            }
+                            System.out.println("\t"+subArchivos[y].getName());
+                            listarSubdirectoriosLocal(subArchivos[y], nivel+1);
+                        
+                    }
+            }
+        }
+    }
+}
+
+    private static void crearDirectorios(Socket cl) {
+    var op = "";
+         System.out.println("¿Desde crear los directorios de manera local o remota?");
+         Scanner scanner = new Scanner(System.in);
+            System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
+             op = scanner.next();
+             if(op.equals("l")){
+                 System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
+                JFileChooser jf = new JFileChooser();
+                File dir = new File("d:\\Documentos\\");
+                jf.setCurrentDirectory(dir);
+                jf.setRequestFocusEnabled(true);
+                jf.requestFocus();
+                jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                int r = jf.showDialog(null, "Elegir");
+                if(r==JFileChooser.APPROVE_OPTION){
+                    File f = jf.getSelectedFile();
+                    String tipo = (f.isDirectory())?"Carpeta":"Archivo";
+                    System.out.println("\033[32m Elegiste: "+f.getAbsolutePath());
+                    System.out.println("Tipo: "+tipo);
+                    if(tipo.compareTo("Carpeta")==0){
+                        File[]listado = f.listFiles();
+                         String permisos="";
+                    if(f.canRead())
+                        permisos = permisos+"r";
+                    if(f.canWrite())
+                        permisos = permisos+"w";
+                    if(f.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                        System.out.println("Contenido:");
+                         crearDirectoriosLocal(f);
+                    }//if
+                 }
+    
+            }else if(op.equals("r")){
+
+            }else{
+                 System.out.println("Opción no válida");
+                 
+             }
+    }
+    
+    private static void crearDirectoriosLocal(File f){
+      String path = f.getAbsolutePath();
+        System.out.println("Ingresa el nombre del nuevo directorio: ");  
+      Scanner sc = new Scanner(System.in);  
+      path = path+"\\"+sc.nextLine();  
+      File f1 = new File(path); 
+      boolean bool = f1.mkdir();  
+      if(bool){  
+         System.out.println("El directorio se creó satisfactoriamente");  
+      }else{  
+         System.out.println("Hubo un error al crear el directorio");  
+      }  
+        
+    }
 }
 

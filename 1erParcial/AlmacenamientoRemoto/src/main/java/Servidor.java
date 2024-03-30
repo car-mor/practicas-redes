@@ -83,7 +83,7 @@ public class Servidor {
             dos.flush();
             for (int y = 0; y < sublistado.length; y++) {
                 if (sublistado[y].isDirectory()) {
-                    dos.writeUTF("    |__"+ sublistado[y].getName());
+                    dos.writeUTF(sublistado[y].getName());
                     dos.flush();
                     enlistarRemoto(sublistado[y], dos);
                 }
