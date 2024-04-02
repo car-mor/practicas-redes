@@ -19,7 +19,7 @@ public class Cliente {
             System.out.println("4. Envío de archivos/carpetas desde el sistema de archivos remoto hacia el local (primitiva get)");
             System.out.println("5. Cambio de carpeta base (local/remoto) mediante primitiva “cd”");
             System.out.println("6. Creación de carpetas (local/remoto) mediante primitiva “mkdir”");
-            System.out.println("7. Salir de la aplicación (primitva “quit”)");
+            System.out.println("7. Salir de la aplicación (primitiva “quit”)");
             Scanner scanner = new Scanner(System.in);
             System.out.println("Ingrese una opción: ");
             opc = scanner.nextInt();
@@ -55,7 +55,8 @@ public class Cliente {
             System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
              op = scanner.next();
              if(op.equals("l")){
-                System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
+                 try{
+                     System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
                 JFileChooser jf = new JFileChooser();
                 File dir = new File("d:\\Documentos\\");
                 jf.setCurrentDirectory(dir);
@@ -82,6 +83,10 @@ public class Cliente {
                          listarSubdirectoriosLocal(f, 1);
                     }//if
                  }
+                    cl.close();
+                 }catch(Exception e){
+                     e.printStackTrace();
+                 }
              }else if(op.equals("r")){
                  try{
                      String directiva = "list";
@@ -101,7 +106,7 @@ public class Cliente {
                      System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
                      String carpetaSeleccionada = dis.readUTF();
                      System.out.println(carpetaSeleccionada);
-                     enlistarSubcarpetas(dis, 1);
+                     enlistarSubcarpetas(dis);
                      dis.close();
                      dos.close();
                      cl.close();
@@ -116,25 +121,45 @@ public class Cliente {
              
 }
 
-     private static void enlistarSubcarpetas(DataInputStream dis, int nivel) throws IOException{
-       int cantidadCarpetas = dis.readInt();
-       for (int i = 0; i < cantidadCarpetas; i++) {
-           String carpetas = dis.readUTF();
-           for (int j=0;j<nivel;j++){
-               System.out.print("\t|__");
-           }
-            System.out.println(carpetas);
-            int cantidadSubcarpetas = dis.readInt();
-            for(int j=0; j<cantidadSubcarpetas;j++){
-                for (int k = 0; k < nivel; k++) {
-                System.out.print("\t|__");
-                }
-                String subcarpetas = dis.readUTF();
-                System.out.println("\t"+subcarpetas);
-                enlistarSubcarpetas(dis, nivel+1);
-            }
-        }  
-     }
+//     private static void enlistarSubcarpetas(DataInputStream dis) throws IOException{
+//       int cantidadCarpetas = dis.readInt();
+//       int nivel = dis.readInt();
+//       for (int i = 0; i < cantidadCarpetas; i++) {
+//           for(int x=0; x<nivel;x++){
+//               String identacion = dis.readUTF();
+//               System.out.print(identacion);
+//           }
+//           String carpetas = dis.readUTF();
+//           System.out.println(carpetas);
+//            int cantidadSubcarpetas = dis.readInt();
+//            if(cantidadSubcarpetas>0){
+//                for(int j=0; j<=cantidadSubcarpetas;j++){
+//                for(int y=0;y<nivel;y++){
+//                    String identacion2 = dis.readUTF();
+//                    System.out.print(identacion2);
+//                }
+//                String subcarpetas = dis.readUTF();
+//                System.out.println(subcarpetas);
+//                enlistarSubcarpetas(dis);
+//            }
+//            }
+//        }  
+//     }
+private static void enlistarSubcarpetas(DataInputStream dis) throws IOException {
+    String ruta = dis.readUTF();
+    String[] partes = ruta.split("/");
+    StringBuilder sb = new StringBuilder();
+    for (int i = 1; i < partes.length; i++) {
+        sb.append("|__");
+    }
+    System.out.println(sb.toString() + partes[partes.length - 1]);
+
+    int cantidadSubcarpetas = dis.readInt();
+
+    for (int i = 0; i < cantidadSubcarpetas; i++) {
+        enlistarSubcarpetas(dis);
+    }
+}
      
     private static void listarSubdirectoriosLocal(File directorio, int nivel) {
     File[] archivos = directorio.listFiles();
@@ -148,12 +173,13 @@ public class Cliente {
                 File subDirectorio = archivos[x];
                 File[] subArchivos = subDirectorio.listFiles();
                     for (int y = 0; y < subArchivos.length; y++) {
+                        if(subArchivos[y].isDirectory()){
                             for (int k = 0; k < nivel; k++) {
                             System.out.print("\t|__");
                             }
                             System.out.println("\t"+subArchivos[y].getName());
                             listarSubdirectoriosLocal(subArchivos[y], nivel+1);
-                        
+                        }
                     }
             }
         }
@@ -196,7 +222,34 @@ public class Cliente {
                  }
     
             }else if(op.equals("r")){
-
+                 try{
+                     String directiva = "mkdir";
+                     DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                     dos.writeUTF(directiva);
+                     dos.flush();
+                     
+                     DataInputStream dis = new DataInputStream(cl.getInputStream()); 
+                     String instr1 = dis.readUTF();
+                     System.out.println(instr1);
+                     String carpeta = dis.readUTF();
+                     System.out.println(carpeta);
+                     String tipo = dis.readUTF();
+                     System.out.println(tipo);
+                     String permisos = dis.readUTF();
+                     System.out.println("Permisos: "+permisos);
+                     System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
+                     String carpetaSeleccionada = dis.readUTF();
+                     System.out.println(carpetaSeleccionada);
+                     enlistarSubcarpetas(dis);
+                     System.out.println("¿En qué carpeta del servidor le gustaría crear un directorio?");
+                     Scanner servdir = new Scanner(System.in);  
+                     //String ruta = ruta+"\\"+servdir.nextLine();  
+                     dis.close();
+                     dos.close();
+                     cl.close();
+                 }catch(Exception e){
+                   e.printStackTrace();
+                 }
             }else{
                  System.out.println("Opción no válida");
                  
