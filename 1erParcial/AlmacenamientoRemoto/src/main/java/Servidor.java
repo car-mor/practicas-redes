@@ -61,8 +61,8 @@ public class Servidor {
                                 enlistarRemoto(f, dos, f.getName());
                                }//if
                             }
-                            dos.close();
                             dis.close();
+                            dos.close();
                             cl.close();
                             break;
                         
@@ -75,10 +75,7 @@ public class Servidor {
                             break;
                         
                         case "quit": //caso 7
-                            salirAplicacion(dis,dos,cl);
-                            dis.close();
-                            dos.close();
-                            cl.close();
+                            salirAplicacion(dis, dos, cl);
                             //s.close();
                             break;
                     }          
@@ -209,9 +206,14 @@ public class Servidor {
             String instr="Cerrando flujos de salida, entrada y socket server...";
             dos.writeUTF(instr);
             dos.flush();
+            dis.close();
+            dos.close();
+            cl.close();
+            System.out.println("Cliente desconectado desde-> "+cl.getInetAddress()+":"+cl.getPort());
         }catch (IOException e) {
             e.printStackTrace();
-        }//try catch
+        
+    }
     }//termina metodo salir app
       
 }//servidor

@@ -6,20 +6,20 @@ import javax.swing.JFileChooser;
  * @authors Carlos Moreno y Vanessa Trejo
  */
 public class Cliente {
-    
+    private static File baseDir;
     public static void main(String[] args) {
         try{
-        while(true){
-            int opc = 0;
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
+        while(true){
+            int opc = 0;
             System.out.println("1. Listado de directorios (local/remoto) mediante la primitiva “list”.");
             System.out.println("2. Borrado de archivos/carpetas (local/remoto) mediante la primitiva “rmdir”.");
             System.out.println("3. Envío de archivos/carpetas desde el sistema de archivos local hacia el remoto (primitiva put)");
             System.out.println("4. Envío de archivos/carpetas desde el sistema de archivos remoto hacia el local (primitiva get)");
             System.out.println("5. Cambio de carpeta base (local/remoto) mediante primitiva “cd”");
             System.out.println("6. Creación de carpetas (local/remoto) mediante primitiva “mkdir”");
-            System.out.println("7. Salir de la aplicación (primitva “quit”)");
+            System.out.println("7. Salir de la aplicación (primitiva “quit”)");
             Scanner scanner = new Scanner(System.in);
             System.out.println("Ingrese una opción: ");
             opc = scanner.nextInt();
@@ -35,18 +35,21 @@ public class Cliente {
                 case 4:
                     break;
                 case 5:
+                    cambioCarpetaBase(cl);
                     break;
                 case 6:
                     crearDirectorios(cl);
                     break;
                 case 7:
                     salirAplicacion(cl);
-                    break;
+                    return;
             }}
         }catch(Exception e){
             e.printStackTrace();
         }
     }
+    
+    //1
      public static void listarDirectorios(Socket cl) {
          var op = "";
          System.out.println("¿Desde listar los directorios de manera local o remota?");
@@ -55,9 +58,11 @@ public class Cliente {
              op = scanner.next();
              if(op.equals("l")){  
                 System.out.println("Seleccione la carpeta de donde desea enlistar los directorios");
-                File dir = new File("d:\\Documentos\\");
-                JFileChooser jf = new JFileChooser();  
-                jf.setCurrentDirectory(dir);
+                if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Desktop");
+                }
+                JFileChooser jf = new JFileChooser();
+                jf.setCurrentDirectory(baseDir);
                 jf.setRequestFocusEnabled(true);
                 jf.requestFocus();
                 jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
@@ -147,18 +152,114 @@ public class Cliente {
                 File subDirectorio = archivos[x];
                 File[] subArchivos = subDirectorio.listFiles();
                     for (int y = 0; y < subArchivos.length; y++) {
+                        if(subArchivos[y].isDirectory()){
                             for (int k = 0; k < nivel; k++) {
                             System.out.print("\t|__");
                             }
                             System.out.println("\t"+subArchivos[y].getName());
                             listarSubdirectoriosLocal(subArchivos[y], nivel+1);
-                        
+                        }
                     }
             }
         }
     }
 }
-
+//caso 5. cambiar de carpeta base de manera local/remota
+    private static void cambioCarpetaBase(Socket cl){
+        var op = "";
+        
+         System.out.println("¿Desde cambiar de directorio de manera local o remota?");
+         Scanner scanner = new Scanner(System.in);
+            System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
+             op = scanner.next();
+             if(op.equals("l")){
+                String userHome = System.getProperty("user.home");
+                File dir = new File(userHome, "Desktop");
+                System.out.println("Actualmente su carpeta base local es: "+dir);
+                System.out.println("Ruta: "+dir.getAbsolutePath());
+                String tipo = (dir.isDirectory())?"Carpeta":"Archivo";
+                System.out.println("Tipo: "+tipo);
+                if(tipo.compareTo("Carpeta")==0){
+                         String permisos="";
+                    if(dir.canRead())
+                        permisos = permisos+"r";
+                    if(dir.canWrite())
+                        permisos = permisos+"w";
+                    if(dir.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                }
+                 System.out.println("Desea cambiar a otra carpeta base? (si/no)");
+                 var op2 ="";
+                 Scanner scanner2 = new Scanner(System.in);
+                 op2 = scanner2.nextLine();
+                 if(op2.equals("si")){
+                     baseDir = cambioBaseFileChooser(dir);
+                    System.out.println("Ha cambiado la carpeta base local de "+dir.getName()+" a "+baseDir.getName());
+                    System.out.println("Ruta: "+baseDir.getAbsolutePath());
+                    String tipo2 = (baseDir.isDirectory())?"Carpeta":"Archivo";
+                    System.out.println("Tipo: "+tipo2);
+                    if(tipo.compareTo("Carpeta")==0){
+                         String permisos="";
+                    if(baseDir.canRead())
+                        permisos = permisos+"r";
+                    if(baseDir.canWrite())
+                        permisos = permisos+"w";
+                    if(baseDir.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                }
+                 }else if(op2.equals("no")){
+                     System.out.println("Su carpeta base sigue siendo: "+ dir.getName());
+                 }else{
+                     System.out.println("Opción no valida");
+                 }
+                
+                    
+            }else if(op.equals("r")){
+                 try{
+                     String directiva = "cd";
+                     DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                     //envia directiva cd
+                     dos.writeUTF(directiva);
+                     dos.flush();
+                     
+                     //recibe instrucciones para el cliente
+                     DataInputStream dis = new DataInputStream(cl.getInputStream()); 
+                     String instrCDDIR = dis.readUTF();
+                     System.out.println(instrCDDIR);
+                     
+                     dis.close();
+                     dos.close();
+                     cl.close();
+                 }catch(Exception e){
+                   e.printStackTrace();
+                 }
+            }else{
+                 System.out.println("Opción no válida");
+                 
+             }
+    }
+    
+//metodo para carpeta base con FileChooser
+    
+   private static File cambioBaseFileChooser(File directorio){
+    JFileChooser jf = new JFileChooser();
+    jf.setCurrentDirectory(directorio);
+    jf.setRequestFocusEnabled(true);
+    jf.requestFocus();
+    jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+    int r = jf.showDialog(null, "Elegir");
+    File f = null; // Declara la variable f aquí
+    if(r==JFileChooser.APPROVE_OPTION){
+        f = jf.getSelectedFile();
+    }
+    return f;
+}
+   
+   
+   
+//caso 6. crear directorios de manera local o remota
     private static void crearDirectorios(Socket cl) {
     var op = "";
          System.out.println("¿Desde crear los directorios de manera local o remota?");
@@ -167,9 +268,11 @@ public class Cliente {
              op = scanner.next();
              if(op.equals("l")){
                 System.out.println("Seleccione la carpeta de donde desea crear el directorio");
+                if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Desktop");
+                }
                 JFileChooser jf = new JFileChooser();
-                File dir = new File("d:\\Documentos\\");
-                jf.setCurrentDirectory(dir);
+                jf.setCurrentDirectory(baseDir);
                 jf.setRequestFocusEnabled(true);
                 jf.requestFocus();
                 jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
@@ -383,10 +486,7 @@ public class Cliente {
             DataInputStream dis = new DataInputStream(cl.getInputStream());
             String instr = dis.readUTF();
             System.out.println(instr);
-                     
-            //dis.close();
-            //dos.close();
-            //cl.close(); // Cerrar el socket
+         
         System.out.println("Conexión cerrada. Saliendo de la aplicación...");
         } catch (IOException e) {
             e.printStackTrace();
