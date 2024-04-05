@@ -2,13 +2,16 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 import javax.swing.JFileChooser;
+import java.util.List;
+import java.util.ArrayList;
 /*
  * @authors Carlos Moreno y Vanessa Trejo
  */
 public class Servidor {
+    private static File baseDir;
     public static void main(String[] args) {
         try{
-           ServerSocket s = new ServerSocket(1234); //asociacion al puerto 1234
+            ServerSocket s = new ServerSocket(1234); //asociacion al puerto 1234
             s.setOption(StandardSocketOptions.SO_REUSEADDR, true);
             
             System.out.println("Servidor iniciado en el puerto "+s.getLocalPort()); //si se creó, va a imprimir el puerto al que está asociado, si está filtrado o bloqueado por firewall mandaría excepción
@@ -25,49 +28,45 @@ public class Servidor {
                     switch(directiva){
                         
                         case "list": //caso 1
-                            String instr1="Seleccione la carpeta de donde desea enlistar los directorios";
+                            String instr1="A continuación se enlistará la carpta base actual";
                             dos.writeUTF(instr1);
                             dos.flush();
-                            JFileChooser jf = new JFileChooser();
-                            File dir = new File("d:\\Documentos\\");
-                            jf.setCurrentDirectory(dir);
-                            jf.setRequestFocusEnabled(true);
-                            jf.requestFocus();
-                            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-                            int r = jf.showDialog(null, "Elegir");
-                            if(r==JFileChooser.APPROVE_OPTION){
-                                File f = jf.getSelectedFile();
-                                String tipo = (f.isDirectory())?"Carpeta":"Archivo";
-                                String carpeta = "\033[32m Elegiste: "+f.getAbsolutePath();
+                            
+                            //enlista la carpeta o dir actual
+                            if (baseDir == null) {
+                                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+                            }
+                                String tipo = (baseDir.isDirectory())?"Carpeta":"Archivo";
+                                String carpeta = "\033[32m Elegiste: "+baseDir.getAbsolutePath();
                                 dos.writeUTF(carpeta);
                                 dos.flush();
                                 String Tipo = "Tipo: "+tipo;
                                 dos.writeUTF(Tipo);
                                 dos.flush();
-                                if(tipo.compareTo("Carpeta")==0){
-                                File[]listado = f.listFiles();
+                                File[]listado = baseDir.listFiles();
                                     String permisos="";
-                                if(f.canRead())
+                                if(baseDir.canRead())
                                    permisos = permisos+"r";
-                                if(f.canWrite())
+                                if(baseDir.canWrite())
                                    permisos = permisos+"w";
-                                if(f.canExecute())
+                                if(baseDir.canExecute())
                                    permisos = permisos+"x";
                                 dos.writeUTF(permisos);
                                 dos.flush();
-                                String Seleccionada = f.getName();
+                                String Seleccionada = baseDir.getName();
                                 dos.writeUTF(Seleccionada);
                                 dos.flush();
-                                enlistarRemoto(f, dos, f.getName());
-                               }//if
-                            }
+                                enlistarRemoto(baseDir, dos, baseDir.getName());
                             dis.close();
                             dos.close();
                             cl.close();
                             break;
                         
                         case "rmdir": //caso 2
-                            eliminarRemoto(dis,dos,cl);   
+                            eliminarRemoto(dis,dos,cl);
+                            dis.close();
+                            dos.close();
+                            cl.close();
                             break;    
                             
                         case "mkdir": //caso 6
@@ -89,7 +88,7 @@ public class Servidor {
     }//main
     
 //********************************************** EMPIEZAN MÉTODOS ******************************
-    //caso 1. enlistar remoto
+    //caso 1. enlistar remoto----------------------------------------------------------------------------
     private static void enlistarRemoto(File f, DataOutputStream dos, String ruta) throws IOException {
     dos.writeUTF(ruta);
     dos.flush();
@@ -110,7 +109,7 @@ public class Servidor {
     }
     }
     
-    //caso 2. eliminar archivos/directorios remoto
+    //caso 2. eliminar archivos/directorios remoto----------------------------------------------------------
     private static void eliminarRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) {
         try{
             //se envia la instrucción al cliente
@@ -119,12 +118,152 @@ public class Servidor {
             dos.writeUTF(instr);
             dos.flush();
             
+            //dir base
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+            }
+            
+            //se envia al cliente la dir del dir base actual
+            String tipo = (baseDir.isDirectory())?"Carpeta":"Archivo";
+            String carpeta = "\033[32m Tu directorio base actual es: "+baseDir.getAbsolutePath();
+            dos.writeUTF(carpeta);
+            dos.flush();
+            
+            //se envia tipo
+            String Tipo = "Tipo: "+tipo;
+            dos.writeUTF(Tipo);
+            dos.flush();
+            
+            //se envian los permisos
+            String permisos="";
+            if(baseDir.canRead())
+                permisos = permisos+"r";
+            if(baseDir.canWrite())
+                permisos = permisos+"w";
+            if(baseDir.canExecute())
+                permisos = permisos+"x";
+            dos.writeUTF(permisos);
+            dos.flush();
+            
+            //enlistamos de manera remota los archivos y carpetas de nivel 1
+            File[]archivos = baseDir.listFiles();
+            List<String> listaArchivos = new ArrayList<>(); //lista String para enviar con 'dos'
+            for(File archivo: archivos){
+                listaArchivos.add(archivo.getName());
+            }   
+            
+            //se envia el listado al cliente
+            for(String nombreArchivo : listaArchivos){
+                dos.writeUTF(nombreArchivo);
+            }
+            dos.writeUTF("-");
+            dos.flush();
+            
+            //recibe el nombre de la carpeta o archivo a borrar
+            String fileBorrar = dis.readUTF();
+            
+            //se envía al cliente el tipo y nombre de lo que elegió borrar iterando y comparando
+            for(File archivo: archivos){
+                
+                //si es carpeta/directorio
+                if(archivo.isDirectory() && archivo.getName().equals(fileBorrar)){
+                    //se envia que se eligió una carpeta 
+                    dos.writeUTF("Elegiste borrar: " + fileBorrar + "de tipo: carpeta");
+                    dos.flush();
+                    //se envían los permisos
+                    String permisosBorrar="";
+                    if(archivo.canRead())
+                        permisosBorrar = permisosBorrar+"r";
+                    if(archivo.canWrite())
+                        permisosBorrar = permisosBorrar+"w";
+                    if(archivo.canExecute())
+                        permisosBorrar = permisosBorrar+"x";
+                    dos.writeUTF(permisosBorrar);
+                    dos.flush();
+                    
+                    //se borra la carpeta (incluido lo que tenga adentro)
+                    borrarDirectorio(archivo);
+                    
+                    //se envia al usuario si se borró correctamente o no
+                    if(!archivo.exists()){
+                       dos.writeUTF("Carpeta fue borrada correctamente");
+                       dos.flush(); 
+                    }else{
+                        dos.writeUTF("Hubo un error al borrar la carpeta");
+                        dos.flush();
+                    }
+                }
+                //si es solo un archivo
+                if(!archivo.isDirectory() && archivo.getName().equals(fileBorrar)){
+                    //se envia que se eligió un archivo
+                    dos.writeUTF("Elegiste borrar: " + fileBorrar + "de tipo: archivo");
+                    dos.flush();
+                    //se envían los permisos
+                    String permisosBorrar="";
+                    if(archivo.canRead())
+                        permisosBorrar = permisosBorrar+"r";
+                    if(archivo.canWrite())
+                        permisosBorrar = permisosBorrar+"w";
+                    if(archivo.canExecute())
+                        permisosBorrar = permisosBorrar+"x";
+                    dos.writeUTF(permisosBorrar);
+                    dos.flush();
+                    
+                    //se borra el archivo
+                    boolean bol = archivo.delete(); 
+                    if (bol) {
+                        //se envia al usuario si se borró correctamente o no
+                        dos.writeUTF("Archivo borrado correctamente");
+                        dos.flush(); 
+                    } else {
+                        //se envia al usuario si se borró correctamente o no
+                        dos.writeUTF("Hubo un error al borrar el archivo");
+                        dos.flush();
+                    } 
+                    
+                }//if archivo   
+                
+            }//for     
+        
         }catch (IOException e) {
             e.printStackTrace();
         }//try catch
     }//termina metodo eliminar remoto
     
-    //caso 6. crear dir. remoto
+    
+    //caso2 de eliminar recursivo si es directorio
+    public static void borrarDirectorio(File directorio) {
+        //si es carpeta 
+        if (directorio.isDirectory()) {
+            File[] archivos = directorio.listFiles();
+            if (archivos != null) {
+                //borra todo el contenido antes de borrar la propia carpeta je
+                for (File archivo : archivos) {
+                    //si es carpeta
+                    if (archivo.isDirectory()){
+                        borrarDirectorio(archivo);
+                    }
+                    //si solo es archivo
+                    if (!archivo.isDirectory()){
+                        boolean archivoBorrado = archivo.delete(); 
+                        if (archivoBorrado) {
+                            System.out.println("El archivo fue eliminado correctamente");
+                        } else {
+                            System.out.println("Hubo un error al eliminar el archivo");
+                        } 
+                    }
+                }
+            }
+        }
+        boolean dirBorrado = directorio.delete();
+        if (dirBorrado) {
+            System.out.println("La carpeta/directorio fue eliminado correctamente");
+        } else {
+            System.out.println("Hubo un error al eliminar la carpeta");
+        }
+    }
+    
+    //caso 6. crear dir. remoto----------------------------------------------------------------------------
     private static void crearRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) {
         try{   
             //se envia la instrucción al cliente
@@ -199,7 +338,7 @@ public class Servidor {
         }//try catch
     }//termina metodo crear remoto
     
-    //caso 7. salir de la aplicacion ja
+    //caso 7. salir de la aplicacion ja-------------------------------------------------------------------
     private static void salirAplicacion(DataInputStream dis, DataOutputStream dos, Socket cl) {
         try{
             //se envia la instrucción al cliente
