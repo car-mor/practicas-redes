@@ -2,6 +2,8 @@ import java.io.*;
 import java.net.*;
 import java.util.Scanner;
 import javax.swing.JFileChooser;
+import java.util.List;
+import java.util.ArrayList;
 /*
  * @authors Carlos Moreno y Vanessa Trejo
  */
@@ -9,9 +11,14 @@ public class Cliente {
     private static File baseDir;
     public static void main(String[] args) {
         try{
+            
+        while(true){
+            
+            //segun yo va adentro del while, sino no se cierra bien en la opcion 7
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
-        while(true){
+            //************************************************************************
+           
             int opc = 0;
             System.out.println("1. Listado de directorios (local/remoto) mediante la primitiva “list”.");
             System.out.println("2. Borrado de archivos/carpetas (local/remoto) mediante la primitiva “rmdir”.");
@@ -25,23 +32,23 @@ public class Cliente {
             opc = scanner.nextInt();
             switch(opc){
                 case 1:
-                    listarDirectorios(cl);
+                    listarDirectorios(cl);//ya se corrigió el remoto->listo
                     break;
                 case 2:
-                    borrarCarpetas(cl);
+                    borrarCarpetas(cl); //ya se corrigió el remoto->listo
                     break;
                 case 3:
                     break;
                 case 4:
                     break;
                 case 5:
-                    cambioCarpetaBase(cl);
+                    cambioCarpetaBase(cl);//falta remoto 
                     break;
                 case 6:
-                    crearDirectorios(cl);
+                    crearDirectorios(cl);//falta corregir remoto(vane) 
                     break;
                 case 7:
-                    salirAplicacion(cl);
+                    salirAplicacion(cl);//listo
                     return;
             }}
         }catch(Exception e){
@@ -49,7 +56,7 @@ public class Cliente {
         }
     }
     
-    //1
+    //caso 1. enlistar local y remoto______________________________________________________________________
      public static void listarDirectorios(Socket cl) {
          var op = "";
          System.out.println("¿Desde listar los directorios de manera local o remota?");
@@ -109,7 +116,7 @@ public class Cliente {
                      System.out.println("Permisos: "+permisos);
                      System.out.println("Carpetas enlistadas desde el servidor de su carpeta: ");
                      String carpetaSeleccionada = dis.readUTF();
-                     System.out.println(carpetaSeleccionada);
+                     System.out.println("Carpeta seleccionada: " + carpetaSeleccionada);
                      enlistarSubcarpetas(dis);
                      dis.close();
                      dos.close();
@@ -123,7 +130,7 @@ public class Cliente {
                  
              }           
 }
-
+     //parte del caso 1 para enlistar remoto
     private static void enlistarSubcarpetas(DataInputStream dis) throws IOException {
     String ruta = dis.readUTF();
     String[] partes = ruta.split("/");
@@ -139,7 +146,7 @@ public class Cliente {
         enlistarSubcarpetas(dis);
     }
 }
-     
+     //parte del caso 1 para enlistar local
     private static void listarSubdirectoriosLocal(File directorio, int nivel) {
     File[] archivos = directorio.listFiles();
     if (archivos != null) {
@@ -164,7 +171,182 @@ public class Cliente {
         }
     }
 }
-//caso 5. cambiar de carpeta base de manera local/remota
+    
+    
+    //caso 2. borrar archivos/carpetas local y remoto__________________________________________________________
+    public static void borrarCarpetas(Socket cl) {
+        var op = "";
+        System.out.println("¿Desea borrar archivos/carpetas de manera local o remota?");
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
+        op = scanner.next();
+        
+        //borrar de forma local archivos/carpetas
+        if(op.equals("l")){
+            System.out.println("Seleccione la carpeta o el archivo que desea eliminar");
+            System.out.println("NOTA. Si elimina una carpeta con archivos se eliminarán también los archivos");
+            
+            //usuario selecciona la carpeta o archivo en documentos local para borrar
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Desktop");
+                }
+            JFileChooser jf = new JFileChooser();
+            jf.setCurrentDirectory(baseDir);
+            jf.setRequestFocusEnabled(true);
+            jf.requestFocus();
+            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+            int r = jf.showDialog(null, "Elegir");
+            if(r==JFileChooser.APPROVE_OPTION){
+                File f = jf.getSelectedFile();
+                String tipo = (f.isDirectory())?"Carpeta":"Archivo";
+                System.out.println("\033[32m Elegiste: "+f.getAbsolutePath());
+                System.out.println("Tipo: "+tipo);
+                
+                //si es carpeta
+                if(tipo.compareTo("Carpeta")==0){
+                    File[]listado = f.listFiles();
+                    String permisos="";
+                    if(f.canRead())
+                        permisos = permisos+"r";
+                    if(f.canWrite())
+                        permisos = permisos+"w";
+                    if(f.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                    //se borra la carpeta y su contenido
+                    borrarDirectorio(f);
+                //si es archivo     
+                } else {
+                    //se borra el archivo (no es carpeta)
+                    borrarArchivo(f);
+                }
+            }//if
+            
+        //borrar de forma remota archivos/carpetas
+        }else if(op.equals("r")){
+            try{
+                //envia la directiva rmdir
+                String directiva = "rmdir";
+                DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                dos.writeUTF(directiva);
+                dos.flush();
+                
+                //recibe la instruccion
+                DataInputStream dis = new DataInputStream(cl.getInputStream());
+                String instr = dis.readUTF();
+                System.out.println(instr);
+                
+                //recibe ubicacion del dir actual
+                String instr2 = dis.readUTF();
+                System.out.println(instr2);
+                
+                //recibe tipo del dir actual
+                String tipo = dis.readUTF();
+                System.out.println(tipo);
+                
+                //recibe permisos
+                String permisos = dis.readUTF();
+                System.out.println(permisos);
+                
+                //recibe archivos
+                List<String> listaArchivos = new ArrayList<>();
+                while(true){
+                    String nombreArchivo = dis.readUTF();
+                    if(nombreArchivo.equals("-")){
+                        break;
+                    }
+                    listaArchivos.add(nombreArchivo);
+                }
+                System.out.println("Los archivos y dir. remotos actuales del primer nivel de la carpeta son:");
+                for(String nombreArchivo: listaArchivos){
+                    System.out.println(nombreArchivo);
+                }
+                
+                //se envia el nombre de la carpeta o archivo a borrar
+                var fileBorrar = "";
+                System.out.println("Ingrese el nombre completo de la carpeta o archivo que desea borrar ");
+                Scanner scanner2 = new Scanner(System.in);
+                fileBorrar = scanner2.nextLine();
+                dos.writeUTF(fileBorrar);
+                dos.flush();
+                
+                //recibe el tipo
+                String tipoBorrar = dis.readUTF();
+                System.out.println(tipoBorrar);
+                
+                //recibe permisos
+                String permisosBorrar = dis.readUTF();
+                System.out.println(permisosBorrar);
+                
+                //recibe si se borró correctamente o no
+                String resultadoBorrar = dis.readUTF();
+                System.out.println(resultadoBorrar);
+                
+                //se cierra
+                dis.close();
+                dos.close();
+                cl.close();
+            }catch(Exception e){
+                e.printStackTrace();
+            }
+        }
+    }
+    
+  //parte del caso 2. borrar dir recursivo forma local 
+    public static void borrarDirectorio(File directorio) {
+        //si es carpeta 
+        if (directorio.isDirectory()) {
+            File[] archivos = directorio.listFiles();
+            if (archivos != null) {
+                //borra todo el contenido antes de borrar la propia carpeta je
+                for (File archivo : archivos) {
+                    //si es carpeta
+                    if (archivo.isDirectory()){
+                        borrarDirectorio(archivo);
+                    }
+                    //si solo es archivo
+                    if (!archivo.isDirectory()){
+                        boolean archivoBorrado = archivo.delete(); 
+                        if (archivoBorrado) {
+                            System.out.println("El archivo fue eliminado correctamente");
+                        } else {
+                            System.out.println("Hubo un error al eliminar el archivo");
+                        } 
+                    }
+                }
+            }
+        }
+        boolean dirBorrado = directorio.delete();
+        if (dirBorrado) {
+            System.out.println("La carpeta/directorio fue eliminado correctamente");
+        } else {
+            System.out.println("Hubo un error al eliminar la carpeta");
+        }
+    }
+    
+    //parte del caso 2. borrar solo archivos forma local
+    public static void borrarArchivo(File directorio) {
+        boolean archivoBorrado = directorio.delete(); 
+        if (archivoBorrado) {
+            System.out.println("El archivo fue eliminado correctamente");
+        } else {
+            System.out.println("Hubo un error al eliminar el archivo");
+        }   
+    }
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+//caso 5. cambiar de carpeta base de manera local/remota______________________________________________________
     private static void cambioCarpetaBase(Socket cl){
         var op = "";
         
@@ -242,7 +424,6 @@ public class Cliente {
     }
     
 //metodo para carpeta base con FileChooser
-    
    private static File cambioBaseFileChooser(File directorio){
     JFileChooser jf = new JFileChooser();
     jf.setCurrentDirectory(directorio);
@@ -259,7 +440,7 @@ public class Cliente {
    
    
    
-//caso 6. crear directorios de manera local o remota
+//caso 6. crear directorios de manera local o remota_________________________________________________________
     private static void crearDirectorios(Socket cl) {
     var op = "";
          System.out.println("¿Desde crear los directorios de manera local o remota?");
@@ -348,7 +529,7 @@ public class Cliente {
                  
              }
     }
-    
+    //parte del caso 6 crear dir local
     private static void crearDirectoriosLocal(File f){
       String path = f.getAbsolutePath();
         System.out.println("Ingresa el nombre del nuevo directorio: ");  
@@ -364,116 +545,7 @@ public class Cliente {
         
     }
 
-    //caso 2. borrar archivos/carpetas
-    public static void borrarCarpetas(Socket cl) {
-        var op = "";
-        System.out.println("¿Desea borrar archivos/carpetas de manera local o remota?");
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Escriba una l(local) o una r(remota) para elegir una opción: ");
-        op = scanner.next();
-        
-        //borrar de forma local archivos/carpetas
-        if(op.equals("l")){
-            System.out.println("Seleccione la carpeta o el archivo que desea eliminar");
-            System.out.println("NOTA. Si elimina una carpeta con archivos se eliminarán también los archivos");
-            
-            //usuario selecciona la carpeta o archivo en documentos local para borrar
-            JFileChooser jf = new JFileChooser();
-            File dir = new File("d:\\Documentos\\");
-            jf.setCurrentDirectory(dir);
-            jf.setRequestFocusEnabled(true);
-            jf.requestFocus();
-            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-            int r = jf.showDialog(null, "Elegir");
-            if(r==JFileChooser.APPROVE_OPTION){
-                File f = jf.getSelectedFile();
-                String tipo = (f.isDirectory())?"Carpeta":"Archivo";
-                System.out.println("\033[32m Elegiste: "+f.getAbsolutePath());
-                System.out.println("Tipo: "+tipo);
-                
-                //si es carpeta
-                if(tipo.compareTo("Carpeta")==0){
-                    File[]listado = f.listFiles();
-                    String permisos="";
-                    if(f.canRead())
-                        permisos = permisos+"r";
-                    if(f.canWrite())
-                        permisos = permisos+"w";
-                    if(f.canExecute())
-                        permisos = permisos+"x";
-                    System.out.println("Permisos:"+permisos);
-                    //se borra la carpeta y su contenido
-                    borrarDirectorio(f);
-                //si es archivo     
-                } else {
-                    //se borra el archivo (no es carpeta)
-                    borrarArchivo(f);
-                }
-            }//if
-            
-        //borrar de forma remota archivos/carpetas
-        }else if(op.equals("r")){
-            try{
-                //envia la directiva rmdir
-                String directiva = "rmdir";
-                DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
-                dos.writeUTF(directiva);
-                dos.flush();
-                
-                //recibe la instruccion
-                DataInputStream dis = new DataInputStream(cl.getInputStream());
-                String instr = dis.readUTF();
-                System.out.println(instr);
-                  
-            }catch(Exception e){
-                e.printStackTrace();
-            }
-        }
-    }
-    
-    //caso 2. borrar dir recursivo forma local
-    public static void borrarDirectorio(File directorio) {
-        //si es carpeta 
-        if (directorio.isDirectory()) {
-            File[] archivos = directorio.listFiles();
-            if (archivos != null) {
-                //borra todo el contenido antes de borrar la propia carpeta je
-                for (File archivo : archivos) {
-                    //si es carpeta
-                    if (archivo.isDirectory()){
-                        borrarDirectorio(archivo);
-                    }
-                    //si solo es archivo
-                    if (!archivo.isDirectory()){
-                        boolean archivoBorrado = archivo.delete(); 
-                        if (archivoBorrado) {
-                            System.out.println("El archivo fue eliminado correctamente");
-                        } else {
-                            System.out.println("Hubo un error al eliminar el archivo");
-                        } 
-                    }
-                }
-            }
-        }
-        boolean dirBorrado = directorio.delete();
-        if (dirBorrado) {
-            System.out.println("La carpeta/directorio fue eliminado correctamente");
-        } else {
-            System.out.println("Hubo un error al eliminar la carpeta");
-        }
-    }
-    
-    //caso 2. borrar solo archivos forma local
-    public static void borrarArchivo(File directorio) {
-        boolean archivoBorrado = directorio.delete(); 
-        if (archivoBorrado) {
-            System.out.println("El archivo fue eliminado correctamente");
-        } else {
-            System.out.println("Hubo un error al eliminar el archivo");
-        }   
-    }
-    
-    //caso 7. salir de la app
+    //caso 7. salir de la app_______________________________________________________________________________
     public static void salirAplicacion(Socket cl) {
         try {
             //envía la directiva quit
