@@ -16,6 +16,7 @@ public class Cliente {
             
             //segun yo va adentro del while, sino no se cierra bien en la opcion 7
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
+            Socket cl2 = new Socket("127.0.0.1", 1234); //segundo socket para enviar bytes de archivos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
             //************************************************************************
            
@@ -38,8 +39,10 @@ public class Cliente {
                     borrarCarpetas(cl); //ya se corrigió el remoto->listo
                     break;
                 case 3:
+                    envioArchivosRemoto(cl, cl2);
                     break;
                 case 4:
+                    recibeArchivosRemoto(cl, cl2);
                     break;
                 case 5:
                     cambioCarpetaBase(cl);//falta remoto 
@@ -334,17 +337,71 @@ public class Cliente {
         }   
     }
     
+//caso 3. Enviar archivos/directorios de cliente(local) a servidor(remoto)______________________________________________________
+    private static void envioArchivosRemoto(Socket cl, Socket cl2){
+        try{
+    DataOutputStream dos = new DataOutputStream(cl2.getOutputStream());
+    System.out.println("Seleccione el archivo que desea mandar al servidor");
+                if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Desktop");
+                }
+                JFileChooser jf = new JFileChooser();
+                jf.setCurrentDirectory(baseDir);
+                jf.setRequestFocusEnabled(true);
+                jf.requestFocus();
+                jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+                int r = jf.showDialog(null, "Elegir");
+                if(r==JFileChooser.APPROVE_OPTION){
+                    File f = jf.getSelectedFile();
+                    String tipo = (f.isDirectory())?"Carpeta":"Archivo";
+                    String nombre = f.getName();
+                    System.out.println("Elegiste: "+nombre);
+                    String ruta = f.getAbsolutePath();
+                    System.out.println("\033[32m Ruta: "+ruta);
+                    DataInputStream dis = new DataInputStream(new FileInputStream(ruta));
+                    System.out.println("Tipo: "+tipo);
+                    String permisos = "";
+                     if(f.canRead())
+                        permisos = permisos+"r";
+                    if(f.canWrite())
+                        permisos = permisos+"w";
+                    if(f.canExecute())
+                        permisos = permisos+"x";
+                    System.out.println("Permisos:"+permisos);
+                    long tam = f.length();
+                    System.out.println("Preparandose pare enviar archivo "+nombre+" de "+tam+" bytes\n\n");
+                    dos.writeUTF(nombre);
+                    dos.flush();
+                    dos.writeLong(tam);
+                    dos.flush();
+                     long enviados = 0;
+                int l=0,porcentaje=0;
+                while(enviados<tam){
+                    byte[] b = new byte[3500];
+                    l=dis.read(b);
+                    System.out.println("enviados: "+l);
+                    dos.write(b,0,l);// dos.write(b);
+                    dos.flush();
+                    enviados = enviados + l;
+                    porcentaje = (int)((enviados*100)/tam);
+                    System.out.print("\rEnviado el "+porcentaje+" % del archivo");
+                }//while
+                System.out.println("\nArchivo enviado..");
+                dis.close();
+                dos.close();
+                cl.close();
+                cl2.close();
+     }
+   
+}catch(Exception e){
+            e.printStackTrace();
+        }//catch
+}
+      
+//caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)
+    private static void recibeArchivosRemoto(Socket cl, Socket cl2){
     
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+    }
     
 //caso 5. cambiar de carpeta base de manera local/remota______________________________________________________
     private static void cambioCarpetaBase(Socket cl){
@@ -400,17 +457,67 @@ public class Cliente {
                     
             }else if(op.equals("r")){
                  try{
+                     //envia directiva cd
                      String directiva = "cd";
                      DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
-                     //envia directiva cd
                      dos.writeUTF(directiva);
                      dos.flush();
                      
-                     //recibe instrucciones para el cliente
-                     DataInputStream dis = new DataInputStream(cl.getInputStream()); 
-                     String instrCDDIR = dis.readUTF();
-                     System.out.println(instrCDDIR);
-                     
+                    DataInputStream dis = new DataInputStream(cl.getInputStream());
+                    //recibe ubicacion del dir actual
+                    String dirBaseRemoto = dis.readUTF();
+                    System.out.println(dirBaseRemoto);
+
+                    //recibe tipo del dir actual
+                    String tipo = dis.readUTF();
+                    System.out.println(tipo);
+
+                    //recibe permisos
+                    String permisos = dis.readUTF();
+                    System.out.println(permisos);
+                    
+                     //recibe la pregunta para confirmar cambiar de dir
+                    String pregunta = dis.readUTF();
+                    System.out.println(pregunta);
+                    var op2 ="";
+                    Scanner scanner2 = new Scanner(System.in);
+                    op2 = scanner2.nextLine();
+                    dos.writeUTF(op2);
+                    dos.flush();
+                    if(op2.equals("si")){
+                        String enlistado = dis.readUTF();
+                        System.out.println(enlistado);
+                        enlistarSubcarpetas(dis);
+                        String instr = dis.readUTF();
+                        System.out.println(instr);
+                        var nuevoDirBase = "";
+                        nuevoDirBase = scanner2.nextLine();
+                        dos.writeUTF(nuevoDirBase);
+                        dos.flush();
+//                        int sinDirectorios = dis.readInt();
+//                        if(sinDirectorios==0){
+//                            System.out.println("No tiene directorios la carpeta base remota");
+//                        }
+                        String confirmacion = dis.readUTF();
+                        System.out.println(confirmacion);
+                        dis.close();
+                        dos.close();
+                        cl.close();
+                    }else if(op2.equals("no")){
+                       dos.writeUTF("no");
+                       dos.flush();
+                       String cancelacion = dis.readUTF();
+                       System.out.println(cancelacion);
+                       dis.close();
+                       dos.close();
+                       cl.close();
+                    }else{
+                        String incorrecto = dis.readUTF();
+                        System.out.println(incorrecto);
+                        dis.close();
+                        dos.close();
+                        cl.close();
+                    }
                      dis.close();
                      dos.close();
                      cl.close();
@@ -423,6 +530,9 @@ public class Cliente {
              }
     }
     
+    private static void envioDeNuevaBase(DataOutputStream dos) throws IOException{
+        
+    }
 //metodo para carpeta base con FileChooser
    private static File cambioBaseFileChooser(File directorio){
     JFileChooser jf = new JFileChooser();
