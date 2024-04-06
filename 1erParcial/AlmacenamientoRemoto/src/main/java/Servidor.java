@@ -12,6 +12,7 @@ public class Servidor {
     public static void main(String[] args) {
         try{
             ServerSocket s = new ServerSocket(1234); //asociacion al puerto 1234
+            
             s.setOption(StandardSocketOptions.SO_REUSEADDR, true);
             
             System.out.println("Servidor iniciado en el puerto "+s.getLocalPort()); //si se creó, va a imprimir el puerto al que está asociado, si está filtrado o bloqueado por firewall mandaría excepción
@@ -68,6 +69,17 @@ public class Servidor {
                             dos.close();
                             cl.close();
                             break;    
+                        case "put": //caso 3
+                            recibeArchivosLocal(dis, dos, cl);
+                            break;
+                            
+                        case "get": //caso 4
+                            enviaArchivosLocal(dis, dos, cl);
+                            break;
+                            
+                        case "cd": //caso 5
+                            cambiarDirBaseRemoto(dis, dos, cl);
+                            break;
                             
                         case "mkdir": //caso 6
                             crearRemoto(dis,dos,cl);   
@@ -103,9 +115,6 @@ public class Servidor {
                 enlistarRemoto(subdir, dos, ruta + "/" + subdir.getName());
             }
         }
-    } else {
-        dos.writeInt(0);
-        dos.flush();
     }
     }
     
@@ -262,6 +271,132 @@ public class Servidor {
             System.out.println("Hubo un error al eliminar la carpeta");
         }
     }
+    
+    //caso 3.Recibir archivos/directorios de cliente(local) a servidor(remoto) --------------------------------------------------------------------------
+    private static void recibeArchivosLocal(DataInputStream dis, DataOutputStream dos, Socket cl){
+            try{
+            ServerSocket s2 = new ServerSocket(1234);
+            s2.setReuseAddress(true);
+            String ruta = baseDir.getAbsolutePath();
+            baseDir.setWritable(true);
+            for(;;){
+                Socket cl2 = s2.accept();
+                String nombre = dis.readUTF();
+                long tam = dis.readLong();
+                System.out.println("Comienza descarga del archivo "+nombre+" de "+tam+" bytes\n\n");
+                DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(ruta+nombre));
+                long recibidos=0;
+                  int l=0, porcentaje=0;
+                  while(recibidos<tam){
+                      byte[] b = new byte[3500];
+                      l = dis.read(b);
+                      System.out.println("leidos: "+l);
+                      dos2.write(b,0,l); //dos.write(b);
+                      dos2.flush();
+                      recibidos = recibidos + l;
+                      porcentaje = (int)((recibidos*100)/tam);
+                      System.out.print("\rRecibido el "+ porcentaje +" % del archivo");
+                  }//while
+                  System.out.println("Archivo recibido..");
+                  dos2.close();
+                  dis.close();
+                  cl2.close();
+                  cl.close();
+            }
+            }catch (IOException e) {
+            e.printStackTrace();
+        }//try catch
+    }
+    //caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)______________________________________________________
+    private static void enviaArchivosLocal(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
+
+    }
+    
+    //caso 5. cambiar dir. remoto--------------------------------------------------------------------------
+    private static void cambiarDirBaseRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
+        if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+            }
+            //se envia al cliente la dir del dir base actual
+            String tipo = (baseDir.isDirectory())?"Carpeta":"Archivo";
+            String carpeta = "\033[32m Tu directorio base actual remoto es: "+baseDir.getAbsolutePath();
+            dos.writeUTF(carpeta);
+            dos.flush();
+            //se envia tipo
+            String Tipo = "Tipo: "+tipo;
+            dos.writeUTF(Tipo);
+            dos.flush();
+            //se envian los permisos
+            String permisos="";
+            if(baseDir.canRead())
+                permisos = permisos+"r";
+            if(baseDir.canWrite())
+                permisos = permisos+"w";
+            if(baseDir.canExecute())
+                permisos = permisos+"x";
+            dos.writeUTF(permisos);
+            dos.flush();
+            String pregunta = "Desea cambiar a otra carpeta base? (si/no)";
+            dos.writeUTF(pregunta);
+            dos.flush();
+            String confirmacion = dis.readUTF();
+            if(confirmacion.equals("si")){
+                dos.writeUTF("Las carpeta actual de tu directorio base remoto y sus subcarpetas son: ");
+                dos.flush();
+                enlistarRemoto(baseDir, dos, baseDir.getName());
+                dos.writeUTF("Escriba el nombre del directorio al que le gustaría establecer como base remoto: ");
+                dos.flush();
+                String nuevoBase = dis.readUTF();
+                recorrerCambioDirBase(baseDir,dos, nuevoBase);
+            }else if(confirmacion.equals("no")){
+                dos.writeUTF("Su carpeta base sigue siendo: "+ baseDir.getName());
+            }else{
+                dos.writeUTF("Opción no válida");
+            }
+            
+            
+    }
+    private static void recorrerCambioDirBase(File f, DataOutputStream dos, String nuevoBase) throws IOException {
+    File[] listado = f.listFiles();
+    boolean directorioEncontrado = false;
+    if (listado != null) {
+        for (int x = 0; x < listado.length; x++) {
+            if (listado[x].getName().equals(nuevoBase)) {
+                File nuevoDir = new File(listado[x].getAbsolutePath());
+                baseDir = nuevoDir;
+                directorioEncontrado = true;
+                break;
+            } else {
+                File subDirectorio = listado[x];
+                File[] subArchivos = subDirectorio.listFiles();
+                for (int y = 0; y < subArchivos.length; y++) {
+                    if (subArchivos[y].getName().equals(nuevoBase)) {
+                        File nuevoDir2 = new File(subArchivos[y].getAbsolutePath());
+                        baseDir = nuevoDir2;
+                        directorioEncontrado = true;
+                        break;
+                    } else {
+                        recorrerCambioDirBase(subArchivos[y], dos, nuevoBase);
+                    }
+                }
+            }
+        }
+    }else{
+        dos.writeInt(0);
+        dos.flush();
+    }
+    
+    if (directorioEncontrado) {
+        dos.writeUTF("Se ha cambiado la carpeta base remota a: " + baseDir.getName());
+        dos.flush();
+    } else {
+        dos.writeUTF("No se encontró el directorio solicitado: " + nuevoBase);
+        dos.flush();
+    }
+}
+    
+
+
     
     //caso 6. crear dir. remoto----------------------------------------------------------------------------
     private static void crearRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) {
