@@ -16,7 +16,7 @@ public class Cliente {
             
             //segun yo va adentro del while, sino no se cierra bien en la opcion 7
             Socket cl = new Socket("127.0.0.1", 1234); //crear instancia de socket especifacndo direccion IP del socket al que nos conectaremos
-            Socket cl2 = new Socket("127.0.0.1", 1234); //segundo socket para enviar bytes de archivos
+            //Socket cl2 = new Socket("127.0.0.1", 1234); //segundo socket para enviar bytes de archivos
             System.out.println("Conexion establecida..seleccione alguna de las siguientes opciones:");
             //************************************************************************
            
@@ -39,16 +39,16 @@ public class Cliente {
                     borrarCarpetas(cl); //ya se corrigió el remoto->listo
                     break;
                 case 3:
-                    envioArchivosRemoto(cl, cl2);
+                    //envioArchivosRemoto(cl, cl2);
                     break;
                 case 4:
-                    recibeArchivosRemoto(cl, cl2);
+                    //recibeArchivosRemoto(cl, cl2);
                     break;
                 case 5:
                     cambioCarpetaBase(cl);//falta remoto 
                     break;
                 case 6:
-                    crearDirectorios(cl);//falta corregir remoto(vane) 
+                    crearDirectorios(cl);//ya se corrigió el remoto->listo 
                     break;
                 case 7:
                     salirAplicacion(cl);//listo
@@ -454,7 +454,7 @@ public class Cliente {
                      System.out.println("Opción no valida");
                  }
                 
-                    
+               //forma remota     
             }else if(op.equals("r")){
                  try{
                      //envia directiva cd
@@ -463,8 +463,8 @@ public class Cliente {
                      dos.writeUTF(directiva);
                      dos.flush();
                      
+                     //recibe ubicacion del dir actual
                     DataInputStream dis = new DataInputStream(cl.getInputStream());
-                    //recibe ubicacion del dir actual
                     String dirBaseRemoto = dis.readUTF();
                     System.out.println(dirBaseRemoto);
 
@@ -472,34 +472,58 @@ public class Cliente {
                     String tipo = dis.readUTF();
                     System.out.println(tipo);
 
-                    //recibe permisos
+                    //recibe permisos del dir actual
                     String permisos = dis.readUTF();
                     System.out.println(permisos);
                     
-                     //recibe la pregunta para confirmar cambiar de dir
+                    //recibe la pregunta para confirmar cambiar de dir
                     String pregunta = dis.readUTF();
                     System.out.println(pregunta);
+                    
+                    //envia respuesta de confirmacion
                     var op2 ="";
                     Scanner scanner2 = new Scanner(System.in);
                     op2 = scanner2.nextLine();
                     dos.writeUTF(op2);
                     dos.flush();
+                    
+                    //codigo para la confirmacion
                     if(op2.equals("si")){
-                        String enlistado = dis.readUTF();
-                        System.out.println(enlistado);
-                        enlistarSubcarpetas(dis);
+                        System.out.println("Las carpeta actual de tu directorio base remoto y sus subcarpetas son: ");
+                        
+                        //recibe listado de la carpeta base actual y lo muestra en pantalla
+                        //recibe archivos
+                        List<String> listaArchivos = new ArrayList<>();
+                        while(true){
+                            String nombreArchivo = dis.readUTF();
+                            if(nombreArchivo.equals("-")){
+                                break;
+                            }
+                            listaArchivos.add(nombreArchivo);
+                        }
+                        System.out.println("Los archivos y dir. remotos actuales del primer nivel de la carpeta son:");
+                        for(String nombreArchivo: listaArchivos){
+                        System.out.println(nombreArchivo);
+                        }
+                        
+                        //recibe instruccion
                         String instr = dis.readUTF();
                         System.out.println(instr);
+                        
+                        //envia el nombre de la nueva carpeta
                         var nuevoDirBase = "";
                         nuevoDirBase = scanner2.nextLine();
                         dos.writeUTF(nuevoDirBase);
                         dos.flush();
+                        
 //                        int sinDirectorios = dis.readInt();
 //                        if(sinDirectorios==0){
 //                            System.out.println("No tiene directorios la carpeta base remota");
 //                        }
+                        //recibe confirmacion
                         String confirmacion = dis.readUTF();
                         System.out.println(confirmacion);
+                        
                         dis.close();
                         dos.close();
                         cl.close();
@@ -601,9 +625,9 @@ public class Cliente {
                      String instrMKDIR = dis.readUTF();
                      System.out.println(instrMKDIR);
                      
-                     //recibe carpeta
-                     String carpeta = dis.readUTF();
-                     System.out.println(carpeta);
+                     //recibe ubicacion de la dir de la carpeta actual
+                     String ubicacion = dis.readUTF();
+                     System.out.println(ubicacion);
                      
                      //recibe tipo
                      String tipo = dis.readUTF();
@@ -613,11 +637,8 @@ public class Cliente {
                      String permisos = dis.readUTF();
                      System.out.println("Permisos: "+permisos);
                      
-                     //recibe la instrucción 2
-                     String instr2MKDIR = dis.readUTF();
-                     System.out.println(instr2MKDIR);
-                     
-                     //envía el nombre de la nueva carpeta
+                     //se envia el nombre de la nueva carpeta
+                     System.out.println("Escriba el nombre de la nueva carpeta");
                      Scanner scMKDIR = new Scanner(System.in);
                      String entradaMKDIR = scMKDIR.nextLine(); // lee la entrada del usuario como una cadena y no como objeto
                      dos.writeUTF(entradaMKDIR); 

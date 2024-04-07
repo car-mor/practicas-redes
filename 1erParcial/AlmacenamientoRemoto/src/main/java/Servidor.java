@@ -82,7 +82,10 @@ public class Servidor {
                             break;
                             
                         case "mkdir": //caso 6
-                            crearRemoto(dis,dos,cl);   
+                            crearRemoto(dis,dos,cl);
+                            dis.close();
+                            dos.close();
+                            cl.close();
                             break;
                         
                         case "quit": //caso 7
@@ -314,18 +317,22 @@ public class Servidor {
     
     //caso 5. cambiar dir. remoto--------------------------------------------------------------------------
     private static void cambiarDirBaseRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
+        //si aun no se definía el dir base
         if (baseDir == null) {
                 baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
             }
+        
             //se envia al cliente la dir del dir base actual
             String tipo = (baseDir.isDirectory())?"Carpeta":"Archivo";
             String carpeta = "\033[32m Tu directorio base actual remoto es: "+baseDir.getAbsolutePath();
             dos.writeUTF(carpeta);
             dos.flush();
+            
             //se envia tipo
             String Tipo = "Tipo: "+tipo;
             dos.writeUTF(Tipo);
             dos.flush();
+            
             //se envian los permisos
             String permisos="";
             if(baseDir.canRead())
@@ -336,64 +343,81 @@ public class Servidor {
                 permisos = permisos+"x";
             dos.writeUTF(permisos);
             dos.flush();
+            
+            //envia pregunta de confirmacion
             String pregunta = "Desea cambiar a otra carpeta base? (si/no)";
             dos.writeUTF(pregunta);
             dos.flush();
+            
+            //recibe confirmacion
             String confirmacion = dis.readUTF();
+            
+            //codigo para procesar confirmacion
             if(confirmacion.equals("si")){
-                dos.writeUTF("Las carpeta actual de tu directorio base remoto y sus subcarpetas son: ");
-                dos.flush();
-                enlistarRemoto(baseDir, dos, baseDir.getName());
+                //manda a enlistar
+                //enlistamos de manera remota los archivos y carpetas de nivel 1
+                File[]archivos = baseDir.listFiles();
+                List<String> listaArchivos = new ArrayList<>(); //lista String para enviar con 'dos'
+                for(File archivo: archivos){
+                    if(archivo.isDirectory()){
+                        listaArchivos.add(archivo.getName());
+                    }
+            }   
+            
+            //se envia el listado al cliente
+            for(String nombreArchivo : listaArchivos){
+                dos.writeUTF(nombreArchivo);
+            }
+            dos.writeUTF("-");
+            dos.flush();
+                
+                //envia instruccion
                 dos.writeUTF("Escriba el nombre del directorio al que le gustaría establecer como base remoto: ");
                 dos.flush();
+                
+                //recibe el nombre de la carpeta a la que se cambiará
                 String nuevoBase = dis.readUTF();
+                
+                //llama a la funcion para el cambio
                 recorrerCambioDirBase(baseDir,dos, nuevoBase);
+                
             }else if(confirmacion.equals("no")){
                 dos.writeUTF("Su carpeta base sigue siendo: "+ baseDir.getName());
             }else{
                 dos.writeUTF("Opción no válida");
             }
-            
-            
+             
     }
     private static void recorrerCambioDirBase(File f, DataOutputStream dos, String nuevoBase) throws IOException {
-    File[] listado = f.listFiles();
-    boolean directorioEncontrado = false;
-    if (listado != null) {
-        for (int x = 0; x < listado.length; x++) {
-            if (listado[x].getName().equals(nuevoBase)) {
-                File nuevoDir = new File(listado[x].getAbsolutePath());
-                baseDir = nuevoDir;
-                directorioEncontrado = true;
-                break;
-            } else {
-                File subDirectorio = listado[x];
-                File[] subArchivos = subDirectorio.listFiles();
-                for (int y = 0; y < subArchivos.length; y++) {
-                    if (subArchivos[y].getName().equals(nuevoBase)) {
-                        File nuevoDir2 = new File(subArchivos[y].getAbsolutePath());
-                        baseDir = nuevoDir2;
-                        directorioEncontrado = true;
-                        break;
-                    } else {
-                        recorrerCambioDirBase(subArchivos[y], dos, nuevoBase);
-                    }
-                }
-            }
-        }
-    }else{
-        dos.writeInt(0);
-        dos.flush();
+    //enlistamos de manera remota los archivos y carpetas de nivel 1 para comparar
+    File[]archivos = baseDir.listFiles();
+    List<String> listaArchivos = new ArrayList<>(); //lista String para enviar con 'dos'
+    for(File archivo: archivos){
+        listaArchivos.add(archivo.getName());
     }
     
-    if (directorioEncontrado) {
-        dos.writeUTF("Se ha cambiado la carpeta base remota a: " + baseDir.getName());
-        dos.flush();
-    } else {
-        dos.writeUTF("No se encontró el directorio solicitado: " + nuevoBase);
-        dos.flush();
-    }
-}
+    //buscamos el match de nombres
+    for(File archivo: archivos){       
+        //si es carpeta/directorio
+        if(archivo.isDirectory() && archivo.getName().equals(nuevoBase)){
+                    
+            // Crea una referencia al nuevo directorio
+            File nuevoDirectorio = new File(baseDir, nuevoBase);
+            baseDir = nuevoDirectorio;
+    
+            //se envia al usuario si se borró correctamente o no
+            if(nuevoDirectorio.exists()){
+                dos.writeUTF("Se cambio de directorio correctamente");
+                dos.flush(); 
+            }else{
+                dos.writeUTF("Hubo un error al cambiar de directorio");
+                dos.flush();
+            }
+        }//if
+               
+    }//for  
+    
+}//ends
     
 
 
@@ -402,72 +426,58 @@ public class Servidor {
     private static void crearRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) {
         try{   
             //se envia la instrucción al cliente
-            String instrMKDIR="Seleccione la carpeta de donde desea crear el directorio";
+            String instrMKDIR="La nueva carpeta se creará en el directorio base actual";
             dos.writeUTF(instrMKDIR);
             dos.flush();
-                            
-            //se selecciona la carpeta remota
-            JFileChooser jfMKDIR = new JFileChooser();
-            File dirMKDIR = new File("d:\\Documentos\\");
-            jfMKDIR.setCurrentDirectory(dirMKDIR);
-            jfMKDIR.setRequestFocusEnabled(true);
-            jfMKDIR.requestFocus();
-            jfMKDIR.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-            int rMKDIR = jfMKDIR.showDialog(null, "Elegir");
-            if(rMKDIR==JFileChooser.APPROVE_OPTION){
-                File fMKDIR = jfMKDIR.getSelectedFile();
-                String tipoMKDIR = (fMKDIR.isDirectory())?"Carpeta":"Archivo";
-                String carpetaMKDIR = "\033[32m Elegiste: "+fMKDIR.getAbsolutePath();
+            
+            //directorio base                
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+            }
+            String tipo = (baseDir.isDirectory())?"Carpeta":"Archivo";
+            
+            //se envia al cliente la direccion de la carpeta base actual
+            String carpeta = "\033[32m Directorio base actual: "+baseDir.getAbsolutePath();
+            dos.writeUTF(carpeta);
+            dos.flush();
+            
+            //se envía al cliente tipo
+            String Tipo = "Tipo: "+tipo;
+            dos.writeUTF(Tipo);
+            dos.flush();
                                 
-                //envia carpeta remota absolutePath
-                dos.writeUTF(carpetaMKDIR);
-                dos.flush();
-                String TipoMKDIR = "Tipo: "+tipoMKDIR;
+            //se envian permisos
+            //File[]listado = baseDir.listFiles();
+            String permisos="";
+            if(baseDir.canRead())
+                permisos = permisos+"r";
+            if(baseDir.canWrite())
+                permisos = permisos+"w";
+            if(baseDir.canExecute())
+                permisos = permisos+"x";
+            dos.writeUTF(permisos);
+            dos.flush();
+            
+            //recibe el nombre de la nueva carpeta
+            String nuevoFile = dis.readUTF();
+            
+            //crea la nueva carpeta
+            String path = baseDir.getAbsolutePath()+"\\"+nuevoFile;  
+            File f1 = new File(path);
+            boolean bool = f1.mkdir(); 
+            f1.setWritable(true); //le damos permisos de escritura o habilitamos
+            f1.setReadable(true); // habilita los permisos de lectura
                                 
-                //envia tipo
-                dos.writeUTF(TipoMKDIR);
-                dos.flush();
-                                
-                //envía permisos
-                if(tipoMKDIR.compareTo("Carpeta")==0){
-                    File[]listadoMKDIR = fMKDIR.listFiles();
-                    String permisosMKDIR="";
-                    if(fMKDIR.canRead())
-                        permisosMKDIR = permisosMKDIR+"r";
-                    if(fMKDIR.canWrite())
-                        permisosMKDIR = permisosMKDIR+"w";
-                    if(fMKDIR.canExecute())
-                        permisosMKDIR = permisosMKDIR+"x";
-                    dos.writeUTF(permisosMKDIR);
-                    dos.flush();
-                                
-                    //envia la segunda instruccion
-                    String instr2MKDIR="Ingresa el nombre del nuevo directorio: ";
-                    dos.writeUTF(instr2MKDIR);
-                    dos.flush();
-                                
-                    //recibe el nombre de la carpeta
-                    String entradaMKDIR = dis.readUTF();
-                                
-                    //se crea la nueva carpeta remota
-                    String pathMKDIR = fMKDIR.getAbsolutePath() + "\\" + entradaMKDIR;
-                    File f1MKDIR = new File(pathMKDIR);
-                    boolean boolMKDIR = f1MKDIR.mkdirs();  //crea la carpeta
-                    f1MKDIR.setWritable(true); //le damos permisos de escritura o habilitamos
-                    f1MKDIR.setReadable(true); // habilita los permisos de lectura
-                                
-                    //se envía al cliente si la carpeta fue creada correctamente o no
-                    if(boolMKDIR){  
-                        String instr3MKDIR="El directorio se creó satisfactoriamente ";
-                        dos.writeUTF(instr3MKDIR);
-                        dos.flush();  
-                    }else{ 
-                        String instr4MKDIR="Hubo un error al crear el directorio";
-                        dos.writeUTF(instr4MKDIR);
-                        dos.flush();
-                    } //if
-                }//if
-            }//if
+            //se envía al cliente si la carpeta fue creada correctamente o no
+            if(bool){  
+                String instr3MKDIR="El directorio se creó satisfactoriamente ";
+                dos.writeUTF(instr3MKDIR);
+                dos.flush(); 
+            }else{  
+                String instr4MKDIR="Hubo un error al crear el directorio";
+                dos.writeUTF(instr4MKDIR);
+                dos.flush();  
+            }  
         }catch (IOException e) {
             e.printStackTrace();
         }//try catch
