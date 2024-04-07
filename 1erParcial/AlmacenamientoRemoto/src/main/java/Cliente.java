@@ -42,7 +42,7 @@ public class Cliente {
                     //envioArchivosRemoto(cl, cl2);
                     break;
                 case 4:
-                    //recibeArchivosRemoto(cl, cl2);
+                    recibeArchivosDeServidor(cl);
                     break;
                 case 5:
                     cambioCarpetaBase(cl);//falta remoto 
@@ -399,8 +399,61 @@ public class Cliente {
 }
       
 //caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)
-    private static void recibeArchivosRemoto(Socket cl, Socket cl2){
-    
+    private static void recibeArchivosDeServidor(Socket cl){
+    try{
+            //envio directiva socket principal
+             String directiva = "get";
+                DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+                dos.writeUTF(directiva);
+                dos.flush();
+            //Flujo de lectura socket principal
+                DataInputStream dis = new DataInputStream(cl.getInputStream());
+            //dir base
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Desktop");
+            }    
+            int pto = 1235;
+            String dir = "127.0.0.2";
+            Socket cl2 = new Socket(dir,pto);
+            System.out.println("Conexion con servidor establecida para envio de archivos.. lanzando FileChooser..");
+            JFileChooser jf = new JFileChooser();
+            int r = jf.showDialog(null, "Elegir");
+            jf.setCurrentDirectory(baseDir);
+            jf.setRequestFocusEnabled(true);
+            jf.requestFocus();
+            jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
+            if(r==JFileChooser.APPROVE_OPTION){
+                File f = jf.getSelectedFile();
+                String nombre = f.getName();
+                String path = f.getAbsolutePath();
+                long tam = f.length();
+                System.out.println("Preparandose pare enviar archivo "+path+" de "+tam+" bytes\n\n");
+                DataOutputStream dos2 = new DataOutputStream(cl2.getOutputStream());
+                DataInputStream dis2 = new DataInputStream(new FileInputStream(path));
+                dos.writeUTF(nombre);
+                dos.flush();
+                dos.writeLong(tam);
+                dos.flush();
+                long enviados = 0;
+                int l=0,porcentaje=0;
+                while(enviados<tam){
+                    byte[] b = new byte[3500];
+                    l=dis2.read(b);
+                    System.out.println("enviados: "+l);
+                    dos2.write(b,0,l);// dos.write(b);
+                    dos2.flush();
+                    enviados = enviados + l;
+                    porcentaje = (int)((enviados*100)/tam);
+                    System.out.print("\rEnviado el "+porcentaje+" % del archivo");
+                }//while
+                System.out.println("\nArchivo enviado..");
+                dis2.close();
+                dos2.close();
+                cl2.close();
+            }//if
+        }catch(Exception e){
+            e.printStackTrace();
+        }//catch
     }
     
 //caso 5. cambiar de carpeta base de manera local/remota______________________________________________________

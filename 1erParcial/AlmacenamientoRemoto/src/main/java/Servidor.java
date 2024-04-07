@@ -74,7 +74,7 @@ public class Servidor {
                             break;
                             
                         case "get": //caso 4
-                            enviaArchivosLocal(dis, dos, cl);
+                            enviaArchivosALocal(dis, dos, cl);
                             break;
                             
                         case "cd": //caso 5
@@ -311,8 +311,54 @@ public class Servidor {
         }//try catch
     }
     //caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)______________________________________________________
-    private static void enviaArchivosLocal(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
-
+    private static void enviaArchivosALocal(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
+        try{
+          int pto = 1235;
+          ServerSocket s2 = new ServerSocket(pto);
+          //ServerSocket s_datos = new ServerSocket(pto+1);
+          s2.setReuseAddress(true);
+          System.out.println("Servidor iniciado esperando por archivos..");
+          //dir base
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+            }
+          File f = new File("");
+          String ruta = baseDir.getAbsolutePath();
+          String carpeta="archivos";
+          String ruta_archivos = ruta+"\\"+carpeta+"\\";
+          System.out.println("ruta:"+ruta_archivos);
+          File f2 = new File(ruta_archivos);
+          f2.mkdirs();
+          f2.setWritable(true);
+          for(;;){
+              Socket cl2 = s2.accept();
+              System.out.println("Cliente conectado desde "+cl2.getInetAddress()+":"+cl2.getPort());
+              DataInputStream dis2 = new DataInputStream(cl2.getInputStream());
+              String nombre = dis.readUTF();
+              long tam = dis.readLong();
+              System.out.println("Comienza descarga del archivo "+nombre+" de "+tam+" bytes\n\n");
+              DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(ruta_archivos+nombre));
+              long recibidos=0;
+              int l=0, porcentaje=0;
+              while(recibidos<tam){
+                  byte[] b = new byte[3500];
+                  l = dis2.read(b);
+                  System.out.println("leidos: "+l);
+                  dos2.write(b,0,l); //dos.write(b);
+                  dos2.flush();
+                  recibidos = recibidos + l;
+                  porcentaje = (int)((recibidos*100)/tam);
+                  System.out.print("\rRecibido el "+ porcentaje +" % del archivo");
+              }//while
+              System.out.println("Archivo recibido..");
+              dos2.close();
+              dis2.close();
+              cl2.close();
+          }//for
+          
+      }catch(Exception e){
+          e.printStackTrace();
+      }  
     }
     
     //caso 5. cambiar dir. remoto--------------------------------------------------------------------------
