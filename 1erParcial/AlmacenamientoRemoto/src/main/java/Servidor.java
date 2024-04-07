@@ -4,6 +4,13 @@ import java.util.Scanner;
 import javax.swing.JFileChooser;
 import java.util.List;
 import java.util.ArrayList;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
+import org.apache.commons.compress.utils.IOUtils;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.IOException;
 /*
  * @authors Carlos Moreno y Vanessa Trejo
  */
@@ -70,7 +77,10 @@ public class Servidor {
                             cl.close();
                             break;    
                         case "put": //caso 3
-                            recibeArchivosLocal(dis, dos, cl);
+                            recibeArchivosDeLocal(dis, dos, cl);
+                            dis.close();
+                            dos.close();
+                            cl.close();
                             break;
                             
                         case "get": //caso 4
@@ -276,7 +286,113 @@ public class Servidor {
     }
     
     //caso 3.Recibir archivos/directorios de cliente(local) a servidor(remoto) --------------------------------------------------------------------------
-    private static void recibeArchivosLocal(DataInputStream dis, DataOutputStream dos, Socket cl){
+    private static void recibeArchivosDeLocal(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
+        try{
+          int pto = 1235;
+          ServerSocket s2 = new ServerSocket(pto);
+          //ServerSocket s_datos = new ServerSocket(pto+1);
+          s2.setReuseAddress(true);
+          System.out.println("Servidor iniciado esperando por archivos..");
+          //dir base
+            if (baseDir == null) {
+                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
+            }
+          File f = new File("");
+          String ruta = baseDir.getAbsolutePath();
+          String carpeta="archivos";
+          String ruta_archivos = ruta+"\\"+carpeta+"\\";
+          System.out.println("ruta:"+ruta_archivos);
+          File f2 = new File(ruta_archivos);
+          f2.mkdirs();
+          f2.setWritable(true);
+          boolean transferenceFinished = false;
+          while (!transferenceFinished) {
+              Socket cl2 = s2.accept();
+              System.out.println("Cliente conectado desde "+cl2.getInetAddress()+":"+cl2.getPort());
+              DataInputStream dis2 = new DataInputStream(cl2.getInputStream());
+              String nombre = dis.readUTF();
+              long tam = dis.readLong();
+              if (nombre.endsWith(".zip")) {
+                // Es un archivo zip, descomprimir en la carpeta destino
+                File zipFile = new File(ruta_archivos + nombre);
+                DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(zipFile));
+
+                long recibidos = 0;
+                int l = 0, porcentaje = 0;
+                while (recibidos < tam) {
+                    byte[] b = new byte[3500];
+                    l = dis2.read(b);
+                    dos2.write(b, 0, l);
+                    dos2.flush();
+                    recibidos = recibidos + l;
+                    porcentaje = (int) ((recibidos * 100) / tam);
+                    System.out.print("\rRecibido el " + porcentaje + " % del archivo");
+                }
+
+                System.out.println("Archivo recibido y descomprimiendo...");
+                dos2.close();
+                dis2.close();
+                cl2.close();
+                
+                transferenceFinished = true;
+                
+                
+
+                // Descomprimir el archivo zip
+                unzipFolder(zipFile, new File(ruta_archivos));
+
+                // Eliminar el archivo zip
+                zipFile.delete();
+            } else {
+              System.out.println("Comienza descarga del archivo "+nombre+" de "+tam+" bytes\n\n");
+              DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(ruta_archivos+nombre));
+              long recibidos=0;
+              int l=0, porcentaje=0;
+              while(recibidos<tam){
+                  byte[] b = new byte[3500];
+                  l = dis2.read(b);
+                  System.out.println("leidos: "+l);
+                  dos2.write(b,0,l); //dos.write(b);
+                  dos2.flush();
+                  recibidos = recibidos + l;
+                  porcentaje = (int)((recibidos*100)/tam);
+                  System.out.print("\rRecibido el "+ porcentaje +" % del archivo");
+              }//while
+              System.out.println("Archivo recibido..");
+              dos2.close();
+              dis2.close();
+              cl2.close();
+              
+              transferenceFinished = true;
+              }
+          }//for
+          s2.close();
+      }catch(Exception e){
+          e.printStackTrace();
+      }  
+    }
+
+   public static void unzipFolder(File zipFile, File destFolder) throws IOException {
+        try (FileInputStream fis = new FileInputStream(zipFile);
+             org.apache.commons.compress.archivers.zip.ZipArchiveInputStream zis = new org.apache.commons.compress.archivers.zip.ZipArchiveInputStream(fis)) {
+            org.apache.commons.compress.archivers.zip.ZipArchiveEntry entry;
+            while ((entry = zis.getNextZipEntry()) != null) {
+                if (entry.isDirectory()) {
+                    new File(destFolder, entry.getName()).mkdirs();
+                } else {
+                    File file = new File(destFolder, entry.getName());
+                    file.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(file)) {
+                        IOUtils.copy(zis, fos);
+                    }
+                }
+            }
+        }
+    }
+ 
+    
+//caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)______________________________________________________
+    private static void enviaArchivosALocal(DataInputStream dis, DataOutputStream dos, Socket cl){
             try{
             ServerSocket s2 = new ServerSocket(1234);
             s2.setReuseAddress(true);
@@ -310,56 +426,7 @@ public class Servidor {
             e.printStackTrace();
         }//try catch
     }
-    //caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)______________________________________________________
-    private static void enviaArchivosALocal(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
-        try{
-          int pto = 1235;
-          ServerSocket s2 = new ServerSocket(pto);
-          //ServerSocket s_datos = new ServerSocket(pto+1);
-          s2.setReuseAddress(true);
-          System.out.println("Servidor iniciado esperando por archivos..");
-          //dir base
-            if (baseDir == null) {
-                baseDir = new File(System.getProperty("user.home"), "Documents/DocumentsRemoto");
-            }
-          File f = new File("");
-          String ruta = baseDir.getAbsolutePath();
-          String carpeta="archivos";
-          String ruta_archivos = ruta+"\\"+carpeta+"\\";
-          System.out.println("ruta:"+ruta_archivos);
-          File f2 = new File(ruta_archivos);
-          f2.mkdirs();
-          f2.setWritable(true);
-          for(;;){
-              Socket cl2 = s2.accept();
-              System.out.println("Cliente conectado desde "+cl2.getInetAddress()+":"+cl2.getPort());
-              DataInputStream dis2 = new DataInputStream(cl2.getInputStream());
-              String nombre = dis.readUTF();
-              long tam = dis.readLong();
-              System.out.println("Comienza descarga del archivo "+nombre+" de "+tam+" bytes\n\n");
-              DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(ruta_archivos+nombre));
-              long recibidos=0;
-              int l=0, porcentaje=0;
-              while(recibidos<tam){
-                  byte[] b = new byte[3500];
-                  l = dis2.read(b);
-                  System.out.println("leidos: "+l);
-                  dos2.write(b,0,l); //dos.write(b);
-                  dos2.flush();
-                  recibidos = recibidos + l;
-                  porcentaje = (int)((recibidos*100)/tam);
-                  System.out.print("\rRecibido el "+ porcentaje +" % del archivo");
-              }//while
-              System.out.println("Archivo recibido..");
-              dos2.close();
-              dis2.close();
-              cl2.close();
-          }//for
-          
-      }catch(Exception e){
-          e.printStackTrace();
-      }  
-    }
+    
     
     //caso 5. cambiar dir. remoto--------------------------------------------------------------------------
     private static void cambiarDirBaseRemoto(DataInputStream dis, DataOutputStream dos, Socket cl) throws IOException{
