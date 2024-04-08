@@ -42,24 +42,31 @@ public class Cliente {
             switch(opc){
                 case 1:
                     listarDirectorios(cl);//ya se corrigió el remoto->listo
+                    cl.close();
                     break;
                 case 2:
                     borrarCarpetas(cl); //ya se corrigió el remoto->listo
+                    cl.close();
                     break;
                 case 3:
                     enviaArchivosAServidor(cl);
+                    cl.close();
                     break;
                 case 4:
-                    
+                    recibeArchivosDeServidor(cl);
+                    cl.close();
                     break;
                 case 5:
                     cambioCarpetaBase(cl);//falta remoto 
+                    cl.close();
                     break;
                 case 6:
                     crearDirectorios(cl);//ya se corrigió el remoto->listo 
+                    cl.close();
                     break;
                 case 7:
                     salirAplicacion(cl);//listo
+                    cl.close();
                     return;
             }}
         }catch(Exception e){
@@ -497,65 +504,142 @@ public class Cliente {
     }
     
     //caso 4. Recibir archivos/directorios de servidor(remoto)a cliente(local)
-    private static void recibeArchivosDeRemoto(Socket cl){
-        try{
-    DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
-    System.out.println("Seleccione el archivo que desea mandar al servidor");
-                if (baseDir == null) {
-                baseDir = new File(System.getProperty("user.home"), "Desktop");
+private static void recibeArchivosDeServidor(Socket cl) {
+    try {
+        // Envío directiva "get" al servidor
+        String directiva = "get";
+        DataOutputStream dos = new DataOutputStream(cl.getOutputStream());
+        dos.writeUTF(directiva);
+        dos.flush();
+
+        // Flujo de lectura del socket principal
+        DataInputStream dis = new DataInputStream(cl.getInputStream());
+
+        // Directorio base
+        if (baseDir == null) {
+            baseDir = new File(System.getProperty("user.home"), "Desktop");
+        }
+        //recibe archivos
+                List<String> listaArchivos = new ArrayList<>();
+                while(true){
+                    String nombreArchivo = dis.readUTF();
+                    if(nombreArchivo.equals("-")){
+                        break;
+                    }
+                    listaArchivos.add(nombreArchivo);
                 }
-                JFileChooser jf = new JFileChooser();
-                jf.setCurrentDirectory(baseDir);
-                jf.setRequestFocusEnabled(true);
-                jf.requestFocus();
-                jf.setFileSelectionMode(JFileChooser.FILES_AND_DIRECTORIES);
-                int r = jf.showDialog(null, "Elegir");
-                if(r==JFileChooser.APPROVE_OPTION){
-                    File f = jf.getSelectedFile();
-                    String tipo = (f.isDirectory())?"Carpeta":"Archivo";
-                    String nombre = f.getName();
-                    System.out.println("Elegiste: "+nombre);
-                    String ruta = f.getAbsolutePath();
-                    System.out.println("\033[32m Ruta: "+ruta);
-                    DataInputStream dis = new DataInputStream(new FileInputStream(ruta));
-                    System.out.println("Tipo: "+tipo);
-                    String permisos = "";
-                     if(f.canRead())
-                        permisos = permisos+"r";
-                    if(f.canWrite())
-                        permisos = permisos+"w";
-                    if(f.canExecute())
-                        permisos = permisos+"x";
-                    System.out.println("Permisos:"+permisos);
-                    long tam = f.length();
-                    System.out.println("Preparandose pare enviar archivo "+nombre+" de "+tam+" bytes\n\n");
-                    dos.writeUTF(nombre);
-                    dos.flush();
-                    dos.writeLong(tam);
-                    dos.flush();
-                     long enviados = 0;
-                int l=0,porcentaje=0;
-                while(enviados<tam){
+                System.out.println("Los archivos y dir. remotos actuales del primer nivel de la carpeta son:");
+                for(String nombreArchivo: listaArchivos){
+                    System.out.println(nombreArchivo);
+                }//enlistar
+          
+        System.out.println("Escriba el nombre de el archivo o directorio que desea recibir");
+        //Enviar nombre de carpeta o archivo
+        String nombreDirArch = "";
+        Scanner scanner = new Scanner(System.in);
+                nombreDirArch = scanner.nextLine();
+                dos.writeUTF(nombreDirArch);
+                dos.flush();
+        System.out.println("Seleccione la carpeta destino (FileChooser):");
+                
+        // Solicitar al usuario que seleccione una carpeta de destino
+        JFileChooser jf = new JFileChooser();
+        jf.setCurrentDirectory(baseDir);
+        jf.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+        jf.setRequestFocusEnabled(true);
+        jf.requestFocus();
+        int r = jf.showDialog(null, "Seleccionar carpeta de destino");
+        if (r == JFileChooser.APPROVE_OPTION) {
+            File destFolder1 = jf.getSelectedFile();
+            String rutaDirSel = destFolder1.getAbsolutePath();
+            
+            
+            File destFolder = new File(rutaDirSel+"\\"+nombreDirArch);
+            destFolder.mkdirs();
+            destFolder.setWritable(true);
+
+            // Recibir el archivo/carpeta del servidor
+            String nombre = dis.readUTF();
+            long tam = dis.readLong();
+
+            // Crear un socket secundario para recibir los datos
+            int pto = 1235;
+            String dir = "127.0.0.2";
+            Socket cl2 = new Socket(dir, pto);
+            DataInputStream dis2 = new DataInputStream(cl2.getInputStream());
+
+            if (nombre.endsWith(".zip")) {
+                // Es un archivo zip, descomprimir en la carpeta de destino
+                File zipFile = new File(destFolder, nombre);
+                DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(zipFile));
+                long recibidos = 0;
+                int l = 0, porcentaje = 0;
+                while (recibidos < tam) {
                     byte[] b = new byte[3500];
-                    l=dis.read(b);
-                    System.out.println("enviados: "+l);
-                    dos.write(b,0,l);// dos.write(b);
-                    dos.flush();
-                    enviados = enviados + l;
-                    porcentaje = (int)((enviados*100)/tam);
-                    System.out.print("\rEnviado el "+porcentaje+" % del archivo");
-                }//while
-                System.out.println("\nArchivo enviado..");
-                dis.close();
-                dos.close();
-                cl.close();
-     }
-   
-}catch(Exception e){
-            e.printStackTrace();
-        }//catch
+                    l = dis2.read(b);
+                    dos2.write(b, 0, l);
+                    dos2.flush();
+                    recibidos = recibidos + l;
+                    porcentaje = (int) ((recibidos * 100) / tam);
+                    System.out.print("\rRecibido el " + porcentaje + " % del archivo");
+                }
+                System.out.println("\nArchivo recibido y descomprimiendo...");
+                dos2.close();
+                dis2.close();
+                cl2.close();
+
+                // Descomprimir el archivo zip
+                unzipFolder(zipFile, destFolder);
+                zipFile.delete();
+            } else {
+                // Es un archivo normal, guardar en la carpeta de destino
+                File file = new File(destFolder, nombre);
+                DataOutputStream dos2 = new DataOutputStream(new FileOutputStream(file));
+                long recibidos = 0;
+                int l = 0, porcentaje = 0;
+                while (recibidos < tam) {
+                    byte[] b = new byte[3500];
+                    l = dis2.read(b);
+                    dos2.write(b, 0, l);
+                    dos2.flush();
+                    recibidos = recibidos + l;
+                    porcentaje = (int) ((recibidos * 100) / tam);
+                    System.out.print("\rRecibido el " + porcentaje + " % del archivo");
+                }
+                System.out.println("\nArchivo recibido.");
+                dos2.close();
+                dis2.close();
+                cl2.close();
+            }
+            dis2.close();
+            cl2.close();
+        }
+
+        dis.close();
+        dos.close();
+        cl.close();
+    } catch (Exception e) {
+        e.printStackTrace();
+    }
 }
-      
+
+public static void unzipFolder(File zipFile, File destFolder) throws IOException {
+        try (FileInputStream fis = new FileInputStream(zipFile);
+             org.apache.commons.compress.archivers.zip.ZipArchiveInputStream zis = new org.apache.commons.compress.archivers.zip.ZipArchiveInputStream(fis)) {
+            org.apache.commons.compress.archivers.zip.ZipArchiveEntry entry;
+            while ((entry = zis.getNextZipEntry()) != null) {
+                if (entry.isDirectory()) {
+                    new File(destFolder, entry.getName()).mkdirs();
+                } else {
+                    File file = new File(destFolder, entry.getName());
+                    file.getParentFile().mkdirs();
+                    try (FileOutputStream fos = new FileOutputStream(file)) {
+                        IOUtils.copy(zis, fos);
+                    }
+                }
+            }
+        }
+    }
 
     
 //caso 5. cambiar de carpeta base de manera local/remota______________________________________________________
